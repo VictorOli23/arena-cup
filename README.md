@@ -1,6 +1,7 @@
 # Arena Cup
 
-MVP em Streamlit para inscrição de equipes, sorteio de confrontos e apostas com pontos virtuais.
+MVP em Streamlit para inscrição individual de atletas, sorteio automático de equipes,
+sorteio de confrontos e apostas com pontos virtuais.
 
 ## Executar
 
@@ -11,10 +12,18 @@ streamlit run app.py
 
 ## Fluxo
 
-1. Cadastre as equipes, seus integrantes e o capitão.
-2. Em **Confrontos e apostas**, realize o sorteio aleatório.
-3. Apostadores identificam-se e usam um saldo inicial de 1.000 pontos virtuais.
-4. Em **Painel administrativo**, entre com a senha de demonstração `admin123` e lance os resultados.
+1. Cada estudante se inscreve individualmente, informando nome, gênero e ano do curso.
+2. As inscrições ficam abertas até 30/11/2026, data do torneio.
+3. Na data definida, o app sorteia automaticamente 8 equipes com 7 ou 8 atletas,
+   garantindo pelo menos duas mulheres em cada equipe e a presença mínima de dois homens.
+4. Depois do sorteio das equipes, a organização sorteia a chave eliminatória simples
+   de oito equipes: quartas, semifinais, terceiro lugar e final.
+5. Apostadores identificam-se e usam um saldo inicial de 1.000 pontos virtuais.
+6. Em **Painel administrativo**, entre com a senha configurada e lance os resultados.
+
+O regulamento considera estudantes do 1º e 2º ano de Educação Física, partidas de
+10 minutos corridos e desempate por tiros de 7 metros. A relação de atletas fica
+bloqueada depois do sorteio para preservar a composição das equipes.
 
 Os resultados administrativos liquidam as apostas e ficam no log de auditoria.
 

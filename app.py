@@ -1,6 +1,6 @@
 import os
 import random
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 import streamlit as st
@@ -15,10 +15,15 @@ st.set_page_config(
 
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+TOURNAMENT_DATE = date(2026, 11, 30)
+TEAM_COUNT = 8
+MIN_TEAM_SIZE = 7
+MAX_TEAM_SIZE = 8
 
 
 def initialize_state() -> None:
     defaults: dict[str, Any] = {
+        "participants": [],
         "teams": [],
         "matches": [],
         "bets": [],
@@ -27,9 +32,9 @@ def initialize_state() -> None:
         "entry_completed": False,
         "entry_profile": "",
         "entry_name": "",
-        "new_team_members": [""],
         "bracket_size": 0,
         "next_team_id": 1,
+        "next_participant_id": 1,
         "next_match_id": 1,
         "next_bet_id": 1,
     }
@@ -67,6 +72,89 @@ def bracket_size_for(team_count: int) -> int:
     while size < team_count:
         size *= 2
     return size
+
+
+def registration_is_open() -> bool:
+    return date.today() < TOURNAMENT_DATE
+
+
+def team_sizes_for(participant_count: int) -> list[int]:
+    base_size, remainder = divmod(participant_count, TEAM_COUNT)
+    return [base_size + (1 if index < remainder else 0) for index in range(TEAM_COUNT)]
+
+
+def draw_teams() -> bool:
+    participants = list(st.session_state.participants)
+    if len(participants) < TEAM_COUNT * MIN_TEAM_SIZE:
+        st.error(
+            f"São necessários pelo menos {TEAM_COUNT * MIN_TEAM_SIZE} atletas "
+            f"para formar {TEAM_COUNT} equipes de {MIN_TEAM_SIZE}."
+        )
+        return False
+    if len(participants) > TEAM_COUNT * MAX_TEAM_SIZE:
+        st.error(
+            f"O limite é de {TEAM_COUNT * MAX_TEAM_SIZE} atletas "
+            f"({MAX_TEAM_SIZE} por equipe)."
+        )
+        return False
+
+    women = [participant for participant in participants if participant["gender"] == "Mulher"]
+    men = [participant for participant in participants if participant["gender"] == "Homem"]
+    if len(women) < TEAM_COUNT * 2:
+        st.error(
+            f"São necessárias pelo menos {TEAM_COUNT * 2} mulheres "
+            "para garantir duas em cada equipe."
+        )
+        return False
+    if len(men) < TEAM_COUNT * 2:
+        st.error(
+            f"São necessários pelo menos {TEAM_COUNT * 2} homens "
+            "para manter a composição mínima prevista no regulamento."
+        )
+        return False
+
+    random.shuffle(women)
+    random.shuffle(men)
+    sizes = team_sizes_for(len(participants))
+    teams = [
+        {
+            "id": index + 1,
+            "name": f"Equipe {index + 1}",
+            "members": [],
+            "captain": "",
+        }
+        for index in range(TEAM_COUNT)
+    ]
+
+    for index, team in enumerate(teams):
+        team["members"].extend(women[index * 2 : index * 2 + 2])
+
+    remaining = women[TEAM_COUNT * 2 :] + men
+    random.shuffle(remaining)
+    for team, size in zip(teams, sizes):
+        vacancies = size - len(team["members"])
+        team["members"].extend(remaining[:vacancies])
+        del remaining[:vacancies]
+        random.shuffle(team["members"])
+        team["captain"] = team["members"][0]["name"]
+        team["members"] = [participant["name"] for participant in team["members"]]
+
+    st.session_state.teams = teams
+    st.session_state.next_team_id = TEAM_COUNT + 1
+    add_audit(
+        f"Sorteio automático realizado em {date.today().strftime('%d/%m/%Y')}: "
+        f"{len(participants)} atletas distribuídos em {TEAM_COUNT} equipes."
+    )
+    return True
+
+
+def maybe_draw_teams() -> None:
+    if (
+        not registration_is_open()
+        and not st.session_state.teams
+        and st.session_state.participants
+    ):
+        draw_teams()
 
 
 def match_label(match_id: int) -> str:
@@ -120,16 +208,6 @@ def reset_matches() -> None:
     st.session_state.bets = []
     st.session_state.bracket_size = 0
     add_audit("Sorteio e apostas da rodada foram reiniciados.")
-
-
-def delete_team(team_id: int) -> None:
-    team = get_team(team_id)
-    if not team:
-        return
-    st.session_state.teams = [
-        item for item in st.session_state.teams if item["id"] != team_id
-    ]
-    add_audit(f"Equipe {team['name']} excluída pelo administrador.")
 
 
 def render_bracket() -> None:
@@ -221,7 +299,7 @@ def settle_bets(match: dict[str, Any]) -> None:
 
 def render_header() -> None:
     st.title("🏆 Arena Cup")
-    st.caption("Inscrição de equipes, sorteio de confrontos e apostas com pontos fictícios.")
+    st.caption("Inscrição individual, sorteio automático de equipes e confrontos.")
     st.warning(
         "Modo demonstração: as apostas usam pontos virtuais e não envolvem dinheiro real. "
         "Qualquer ajuste administrativo fica registrado no log."
@@ -277,6 +355,7 @@ def render_entry_screen() -> bool:
 
 
 initialize_state()
+maybe_draw_teams()
 if not render_entry_screen():
     st.stop()
 
@@ -304,95 +383,87 @@ with st.sidebar:
         label_visibility="collapsed",
     )
     st.divider()
-    st.metric("Equipes inscritas", len(st.session_state.teams))
+    st.metric("Atletas inscritos", len(st.session_state.participants))
     st.metric("Confrontos", len(st.session_state.matches))
 
 if page == "Inscrição":
-    st.header("Inscrição de equipe")
-    st.write("Comece pelo nome da equipe, adicione os integrantes e marque o capitão.")
+    st.header("Inscrição individual")
+    st.write(
+        "Cada estudante se inscreve sozinho. As equipes não são escolhidas pelos "
+        "participantes: o sorteio será automático na data do torneio."
+    )
+    st.info(
+        f"Torneio em {TOURNAMENT_DATE.strftime('%d/%m/%Y')}: serão sorteadas "
+        "8 equipes com 7 ou 8 atletas, garantindo pelo menos 2 mulheres em cada equipe."
+    )
 
-    name = st.text_input("Nome da equipe", max_chars=40, key="new_team_name")
-    st.subheader("Integrantes")
-    member_input_col, add_member_col = st.columns([5, 1])
-    with member_input_col:
-        st.text_input(
-            "Nome do integrante",
-            placeholder="Digite um nome e clique em +",
-            key="new_member_input",
-            label_visibility="collapsed",
-        )
-    with add_member_col:
-        add_member = st.button("+", help="Adicionar integrante", use_container_width=True)
-
-    if add_member:
-        new_member = st.session_state.new_member_input.strip()
-        if not new_member:
-            st.error("Digite o nome do integrante antes de adicionar.")
-        elif len(st.session_state.new_team_members) >= 12:
-            st.error("O limite é de 12 integrantes por equipe.")
-        elif any(member.casefold() == new_member.casefold() for member in st.session_state.new_team_members if member):
-            st.error("Esse integrante já foi adicionado.")
-        else:
-            st.session_state.new_team_members.append(new_member)
-            st.rerun()
-
-    selected_captains = []
-    for index, member in enumerate(st.session_state.new_team_members):
-        if member:
-            captain_col, name_col = st.columns([1, 8])
-            with captain_col:
-                is_captain = st.checkbox(
-                    "Capitão",
-                    key=f"captain_{index}",
-                    help="Marque esta caixa para definir o capitão.",
-                )
-            with name_col:
-                st.text_input(
-                    f"Integrante {index + 1}",
-                    value=member,
-                    disabled=True,
-                    label_visibility="collapsed",
-                    key=f"display_member_{index}",
-                )
-            if is_captain:
-                selected_captains.append(member)
-
-    submitted = st.button("Inscrever equipe", type="primary", use_container_width=True)
-    if submitted:
-        clean_members = [member.strip() for member in st.session_state.new_team_members if member.strip()]
-        if not name.strip():
-            st.error("Preencha o nome da equipe.")
-        elif len(clean_members) < 2:
-            st.error("Adicione pelo menos dois integrantes.")
-        elif len(selected_captains) != 1:
-            st.error("Marque a caixa de exatamente um integrante para definir o capitão.")
-        elif any(team["name"].casefold() == name.strip().casefold() for team in st.session_state.teams):
-            st.error("Já existe uma equipe com esse nome.")
-        else:
-            st.session_state.teams.append(
-                {
-                    "id": st.session_state.next_team_id,
-                    "name": name.strip(),
-                    "members": clean_members,
-                    "captain": selected_captains[0],
-                }
+    if registration_is_open():
+        with st.form("participant_form"):
+            participant_name = st.text_input("Nome completo", max_chars=80)
+            participant_gender = st.selectbox("Gênero para composição das equipes", ["Mulher", "Homem"])
+            participant_year = st.selectbox("Ano do curso", ["1º ano", "2º ano"])
+            submitted = st.form_submit_button(
+                "Inscrever-me", type="primary", use_container_width=True
             )
-            st.session_state.next_team_id += 1
-            st.session_state.new_team_members = [""]
-            add_audit(f"Equipe {name.strip()} inscrita.")
-            st.success(f"Equipe {name.strip()} inscrita com sucesso!")
-            st.rerun()
 
-    st.subheader("Equipes cadastradas")
-    if not st.session_state.teams:
-        st.info("Ainda não há equipes cadastradas.")
+        if submitted:
+            clean_name = participant_name.strip()
+            duplicate = any(
+                participant["name"].casefold() == clean_name.casefold()
+                for participant in st.session_state.participants
+            )
+            if not clean_name:
+                st.error("Informe seu nome completo.")
+            elif duplicate:
+                st.error("Este nome já possui uma inscrição.")
+            elif len(st.session_state.participants) >= TEAM_COUNT * MAX_TEAM_SIZE:
+                st.error("As inscrições atingiram o limite de 64 atletas.")
+            else:
+                st.session_state.participants.append(
+                    {
+                        "id": st.session_state.next_participant_id,
+                        "name": clean_name,
+                        "gender": participant_gender,
+                        "year": participant_year,
+                    }
+                )
+                st.session_state.next_participant_id += 1
+                add_audit(f"Atleta {clean_name} realizou inscrição individual.")
+                st.success("Inscrição realizada com sucesso!")
+                st.rerun()
     else:
+        st.warning("As inscrições estão encerradas. O sorteio é realizado automaticamente.")
+
+    st.subheader(f"Atletas inscritos ({len(st.session_state.participants)}/64)")
+    if not st.session_state.participants:
+        st.info("Ainda não há atletas inscritos.")
+    else:
+        st.dataframe(
+            [
+                {
+                    "Nome": participant["name"],
+                    "Gênero": participant["gender"],
+                    "Ano": participant["year"],
+                }
+                for participant in st.session_state.participants
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    if st.session_state.teams:
+        st.subheader("Equipes sorteadas")
         for team in st.session_state.teams:
             with st.expander(f"{team['name']} — capitão: {team['captain']}"):
                 st.write("Integrantes:", ", ".join(team["members"]))
 
 elif page == "Confrontos e apostas":
     st.header("Confrontos e apostas")
+    if not st.session_state.teams:
+        st.info(
+            f"As equipes serão sorteadas automaticamente em "
+            f"{TOURNAMENT_DATE.strftime('%d/%m/%Y')}, após o encerramento das inscrições."
+        )
     user = st.text_input(
         "Seu nome",
         value=st.session_state.entry_name if st.session_state.entry_profile == "Apostador" else "",
@@ -406,15 +477,24 @@ elif page == "Confrontos e apostas":
 
     col_a, col_b = st.columns(2)
     with col_a:
-        if st.button("Sortear confrontos", type="primary", use_container_width=True):
+        if st.button(
+            "Sortear confrontos",
+            type="primary",
+            use_container_width=True,
+            disabled=not st.session_state.teams,
+        ):
             create_random_matches()
     with col_b:
-        if st.button("Refazer sorteio", use_container_width=True):
+        if st.button(
+            "Refazer sorteio",
+            use_container_width=True,
+            disabled=not st.session_state.teams,
+        ):
             reset_matches()
             create_random_matches()
 
     if not st.session_state.matches:
-        st.info("Cadastre as equipes e realize o sorteio para liberar as apostas.")
+        st.info("A chave de 8 equipes será liberada após o sorteio automático das equipes.")
     else:
         render_bracket()
         st.metric("Saldo de pontos virtuais", points_for_user(user) if user else 1000)
@@ -478,28 +558,35 @@ else:
             st.session_state.admin_authenticated = False
             st.rerun()
 
-        st.subheader("Gerenciar equipes")
-        if not st.session_state.teams:
-            st.info("Nenhuma equipe cadastrada.")
-        elif st.session_state.matches:
+        st.subheader("Gerenciar inscrições")
+        if st.session_state.matches:
             st.warning(
-                "O chaveamento já foi criado. Cancele a rodada para editar as equipes; "
-                "isso também apagará as apostas pendentes desta rodada."
+                "O chaveamento já foi criado. As inscrições e equipes estão bloqueadas "
+                "para preservar a integridade da competição."
             )
-            if st.button("Cancelar chaveamento e liberar edição"):
-                reset_matches()
-                st.success("Chaveamento cancelado. Agora as equipes podem ser editadas.")
-                st.rerun()
+        elif st.session_state.teams:
+            st.info("O sorteio das equipes já foi realizado; as inscrições estão bloqueadas.")
         else:
-            st.caption("Exclua as equipes que não participarão antes de realizar o sorteio.")
-            for team in st.session_state.teams:
-                team_col, action_col = st.columns([5, 1])
-                with team_col:
-                    st.write(f"**{team['name']}** — capitão: {team['captain']}")
+            st.caption(
+                f"{len(st.session_state.participants)} atletas inscritos. "
+                "Remova inscrições duplicadas ou incorretas antes da data do sorteio."
+            )
+            for participant in st.session_state.participants:
+                participant_col, action_col = st.columns([5, 1])
+                with participant_col:
+                    st.write(
+                        f"**{participant['name']}** — "
+                        f"{participant['gender']}, {participant['year']}"
+                    )
                 with action_col:
-                    if st.button("Excluir", key=f"delete_team_{team['id']}"):
-                        delete_team(team["id"])
-                        st.success(f"Equipe {team['name']} excluída.")
+                    if st.button("Excluir", key=f"delete_participant_{participant['id']}"):
+                        st.session_state.participants = [
+                            item
+                            for item in st.session_state.participants
+                            if item["id"] != participant["id"]
+                        ]
+                        add_audit(f"Inscrição de {participant['name']} excluída pelo administrador.")
+                        st.success(f"Inscrição de {participant['name']} excluída.")
                         st.rerun()
 
         st.subheader("Lançar resultados")
