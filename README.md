@@ -16,6 +16,7 @@ streamlit run app.py
 2. As inscrições ficam abertas até **27/11/2026 às 12:30**.
 3. Às **15:30 de 27/11/2026**, o app sorteia automaticamente 8 equipes com 7 ou 8 atletas,
    garantindo pelo menos duas mulheres em cada equipe e a presença mínima de dois homens.
+   O capitão de cada equipe também é escolhido aleatoriamente entre seus integrantes.
 4. O mesmo sorteio cria automaticamente a chave eliminatória simples de oito equipes:
    quartas, semifinais, terceiro lugar e final.
 5. Apostadores identificam-se e usam um saldo inicial de 1.000 pontos virtuais.
@@ -27,6 +28,10 @@ confrontos; cada competidor também vê em destaque a equipe em que caiu.
 Os cadastros e o resultado do sorteio são mantidos em SQLite para serem compartilhados
 entre as sessões dos participantes. O caminho pode ser alterado pela variável
 `ARENA_DATABASE_PATH`.
+
+A interface usa uma identidade visual de competição de handebol, com painel do torneio,
+cards das equipes, capitão em destaque, indicadores de atletas/confrontos e confrontos
+organizados em uma chave visual.
 
 O regulamento considera estudantes do 1º e 2º ano de Educação Física, partidas de
 10 minutos corridos e desempate por tiros de 7 metros. A relação de atletas fica

@@ -2,6 +2,7 @@ import os
 import random
 import json
 import sqlite3
+from html import escape
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 from typing import Any
@@ -245,7 +246,7 @@ def draw_teams() -> bool:
         team["members"].extend(remaining[:vacancies])
         del remaining[:vacancies]
         random.shuffle(team["members"])
-        team["captain"] = team["members"][0]["name"]
+        team["captain"] = random.choice(team["members"])["name"]
         team["members"] = [participant["name"] for participant in team["members"]]
 
     st.session_state.teams = teams
@@ -333,7 +334,7 @@ def render_bracket() -> None:
     if not st.session_state.matches:
         return
 
-    st.subheader("Chaveamento da competição")
+    st.markdown('<div class="section-title">Chaveamento da competição</div>', unsafe_allow_html=True)
     st.caption(
         f"{len(st.session_state.teams)} equipes inscritas em uma chave de "
         f"{st.session_state.bracket_size} vagas."
@@ -417,7 +418,100 @@ def settle_bets(match: dict[str, Any]) -> None:
 
 
 def render_header() -> None:
-    st.title("🏆 Arena Cup")
+    st.markdown(
+        """
+        <style>
+        :root {
+            --arena-blue: #092c4c;
+            --arena-blue-light: #0f4c81;
+            --arena-orange: #f28c28;
+            --arena-cream: #fff8ef;
+        }
+        .stApp {
+            background: linear-gradient(180deg, #f8fbff 0%, #ffffff 48%);
+        }
+        [data-testid="stSidebar"] {
+            background: var(--arena-blue);
+        }
+        [data-testid="stSidebar"] * {
+            color: #ffffff !important;
+        }
+        .arena-hero {
+            background: linear-gradient(115deg, var(--arena-blue), var(--arena-blue-light));
+            border-radius: 20px;
+            color: white;
+            padding: 1.5rem 1.8rem;
+            margin: 0 0 1.25rem;
+            box-shadow: 0 10px 24px rgba(9, 44, 76, .18);
+        }
+        .arena-hero h1 {
+            margin: 0;
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            letter-spacing: -.04em;
+        }
+        .arena-hero p {
+            margin: .35rem 0 0;
+            color: #dceeff;
+            font-size: 1.05rem;
+        }
+        .section-title {
+            border-left: 5px solid var(--arena-orange);
+            color: var(--arena-blue);
+            font-size: 1.45rem;
+            font-weight: 800;
+            margin: 1.25rem 0 .75rem;
+            padding-left: .75rem;
+        }
+        .team-card {
+            background: white;
+            border: 1px solid #dce7f1;
+            border-top: 5px solid var(--arena-orange);
+            border-radius: 14px;
+            box-shadow: 0 6px 16px rgba(9, 44, 76, .08);
+            min-height: 150px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 1rem;
+        }
+        .team-card.highlight {
+            border: 2px solid var(--arena-orange);
+            border-top-width: 7px;
+            background: var(--arena-cream);
+        }
+        .team-card h3 {
+            color: var(--arena-blue);
+            margin: 0 0 .4rem;
+        }
+        .team-card .captain {
+            color: #b75d00;
+            font-weight: 700;
+            margin-bottom: .55rem;
+        }
+        .team-card .members {
+            color: #405466;
+            font-size: .92rem;
+            line-height: 1.5;
+        }
+        .match-card {
+            background: #ffffff;
+            border: 1px solid #dce7f1;
+            border-left: 5px solid var(--arena-blue-light);
+            border-radius: 12px;
+            padding: .8rem 1rem;
+            margin: .5rem 0;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        """
+        <div class="arena-hero">
+            <h1>🏆 Arena Cup</h1>
+            <p>Torneio de handebol misto • integração, respeito e espírito esportivo</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.caption("Inscrição individual, sorteio automático de equipes e confrontos.")
     st.warning(
         "Modo demonstração: as apostas usam pontos virtuais e não envolvem dinheiro real. "
@@ -546,7 +640,14 @@ with st.sidebar:
     st.metric("Confrontos", len(st.session_state.matches))
 
 if page == "Tela principal":
-    st.header("Tela principal")
+    st.markdown('<div class="section-title">Painel do torneio</div>', unsafe_allow_html=True)
+    metric_a, metric_b, metric_c = st.columns(3)
+    with metric_a:
+        st.metric("Equipes", len(st.session_state.teams) or "—", "8 previstas")
+    with metric_b:
+        st.metric("Atletas", len(st.session_state.participants) or "—")
+    with metric_c:
+        st.metric("Confrontos", len(st.session_state.matches) or "—")
     if registration_is_open():
         st.info(
             "Inscrições abertas até 27/11/2026 às 12:30. "
@@ -568,14 +669,29 @@ if page == "Tela principal":
         )
         if participant_team:
             st.success(f"Você caiu na **{participant_team['name']}**.")
-        st.subheader("Equipes sorteadas")
-        for team in st.session_state.teams:
-            with st.expander(f"{team['name']} — capitão: {team['captain']}", expanded=bool(participant_team and team["id"] == participant_team["id"])):
-                st.write("Integrantes:", ", ".join(team["members"]))
+        st.markdown('<div class="section-title">Equipes sorteadas</div>', unsafe_allow_html=True)
+        for row_start in range(0, len(st.session_state.teams), 2):
+            team_columns = st.columns(2)
+            for column, team in zip(team_columns, st.session_state.teams[row_start : row_start + 2]):
+                is_my_team = bool(participant_team and team["id"] == participant_team["id"])
+                members = ", ".join(escape(member) for member in team["members"])
+                highlight = " highlight" if is_my_team else ""
+                marker = " • SUA EQUIPE" if is_my_team else ""
+                with column:
+                    st.markdown(
+                        f"""
+                        <div class="team-card{highlight}">
+                            <h3>{escape(team['name'])}{marker}</h3>
+                            <div class="captain">⭐ Capitão: {escape(team['captain'])}</div>
+                            <div class="members"><b>{len(team['members'])} atletas</b><br>{members}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
     else:
         st.info("As equipes e os confrontos aparecerão aqui após o sorteio automático.")
 
-    st.header("Confrontos e apostas")
+    st.markdown('<div class="section-title">Confrontos e apostas</div>', unsafe_allow_html=True)
     if not st.session_state.teams:
         st.info(
             f"As equipes serão sorteadas automaticamente em "
@@ -602,7 +718,11 @@ if page == "Tela principal":
             team_a = team_label(match["team_a"])
             team_b = team_label(match["team_b"])
             with st.container(border=True):
-                st.subheader(f"{team_a}  ×  {team_b}")
+                st.markdown(
+                    f'<div class="match-card"><b>{escape(team_a)} &nbsp; × &nbsp; '
+                    f'{escape(team_b)}</b></div>',
+                    unsafe_allow_html=True,
+                )
                 if match["status"] == "Bye":
                     st.info(f"{team_label(match['winner'])} avançou automaticamente por bye.")
                     continue
