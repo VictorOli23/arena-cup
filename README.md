@@ -25,9 +25,10 @@ streamlit run app.py
 Antes do sorteio, somente o administrador visualiza a relação completa de inscritos.
 Após o sorteio, a tela principal exibe as equipes formadas, seus integrantes e os
 confrontos; cada competidor também vê em destaque a equipe em que caiu.
-Os cadastros e o resultado do sorteio são mantidos em SQLite para serem compartilhados
-entre as sessões dos participantes. O caminho pode ser alterado pela variável
-`ARENA_DATABASE_PATH`.
+Em produção, os cadastros e o resultado do sorteio são mantidos no PostgreSQL do Neon
+para serem compartilhados entre as sessões dos participantes. Configure a variável
+`DATABASE_URL` no Render com a connection string do Neon. Sem `DATABASE_URL`, o app
+usa SQLite local no arquivo definido por `ARENA_DATABASE_PATH`.
 
 A interface usa uma identidade visual de competição de handebol, com painel do torneio,
 cards das equipes, capitão em destaque, indicadores de atletas/confrontos e confrontos
@@ -42,6 +43,13 @@ Os resultados administrativos liquidam as apostas e ficam no log de auditoria.
 Antes de publicar, configure a variável de ambiente `ADMIN_PASSWORD` com uma senha
 forte. O app não possui uma senha administrativa padrão: se essa variável não estiver
 configurada, o painel administrativo permanecerá bloqueado.
+
+Para configurar o Neon:
+
+1. No Neon, copie a connection string PostgreSQL do projeto.
+2. No Render, abra **Environment** e crie `DATABASE_URL` com essa string.
+3. Faça um novo deploy; as tabelas `participants` e `app_state` serão criadas
+   automaticamente na primeira inicialização.
 
 > Este MVP é demonstrativo: não processa dinheiro real e não deve ser usado para ocultar
 > manipulação de resultados. Qualquer correção de resultado deve ser justificada e auditada.

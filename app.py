@@ -9,6 +9,13 @@ from typing import Any
 
 import streamlit as st
 
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:
+    psycopg = None
+    dict_row = None
+
 
 st.set_page_config(
     page_title="Arena Cup",
@@ -27,27 +34,43 @@ TEAM_COUNT = 8
 MIN_TEAM_SIZE = 7
 MAX_TEAM_SIZE = 8
 DATABASE_PATH = os.environ.get("ARENA_DATABASE_PATH", "arena_cup.db")
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 
 
-def database_connection() -> sqlite3.Connection:
+def database_connection() -> Any:
+    if DATABASE_URL:
+        if psycopg is None:
+            raise RuntimeError(
+                "A dependência psycopg não está instalada. "
+                "Adicione-a ao requirements.txt antes de usar DATABASE_URL."
+            )
+        return psycopg.connect(DATABASE_URL, row_factory=dict_row)
     connection = sqlite3.connect(DATABASE_PATH)
     connection.row_factory = sqlite3.Row
     return connection
 
 
+def execute_query(connection: Any, query: str, parameters: tuple[Any, ...] = ()) -> Any:
+    if DATABASE_URL:
+        query = query.replace("?", "%s")
+    return connection.execute(query, parameters)
+
+
 def initialize_database() -> None:
     with database_connection() as connection:
-        connection.execute(
+        execute_query(
+            connection,
             """
             CREATE TABLE IF NOT EXISTS participants (
                 id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                name TEXT NOT NULL UNIQUE,
                 gender TEXT NOT NULL,
                 year TEXT NOT NULL
             )
             """
         )
-        connection.execute(
+        execute_query(
+            connection,
             """
             CREATE TABLE IF NOT EXISTS app_state (
                 key TEXT PRIMARY KEY,
@@ -59,12 +82,14 @@ def initialize_database() -> None:
 
 def load_shared_state() -> None:
     with database_connection() as connection:
-        rows = connection.execute(
+        rows = execute_query(
+            connection,
             "SELECT id, name, gender, year FROM participants ORDER BY id"
         ).fetchall()
         st.session_state.participants = [dict(row) for row in rows]
         for key in ("teams", "matches", "bets", "audit_log", "bracket_size"):
-            row = connection.execute(
+            row = execute_query(
+                connection,
                 "SELECT value FROM app_state WHERE key = ?", (key,)
             ).fetchone()
             if row:
@@ -87,7 +112,8 @@ def load_shared_state() -> None:
 def save_shared_state() -> None:
     with database_connection() as connection:
         for key in ("teams", "matches", "bets", "audit_log", "bracket_size"):
-            connection.execute(
+            execute_query(
+                connection,
                 """
                 INSERT INTO app_state (key, value) VALUES (?, ?)
                 ON CONFLICT(key) DO UPDATE SET value = excluded.value
@@ -98,7 +124,8 @@ def save_shared_state() -> None:
 
 def save_participant(participant: dict[str, Any]) -> None:
     with database_connection() as connection:
-        connection.execute(
+        execute_query(
+            connection,
             """
             INSERT INTO participants (id, name, gender, year)
             VALUES (?, ?, ?, ?)
@@ -114,7 +141,11 @@ def save_participant(participant: dict[str, Any]) -> None:
 
 def remove_participant(participant_id: int) -> None:
     with database_connection() as connection:
-        connection.execute("DELETE FROM participants WHERE id = ?", (participant_id,))
+        execute_query(
+            connection,
+            "DELETE FROM participants WHERE id = ?",
+            (participant_id,),
+        )
 
 
 def initialize_state() -> None:
