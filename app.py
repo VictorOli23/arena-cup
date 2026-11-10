@@ -456,16 +456,66 @@ def render_header() -> None:
             --arena-blue: #092c4c;
             --arena-blue-light: #0f4c81;
             --arena-orange: #f28c28;
-            --arena-cream: #fff8ef;
+            --arena-cream: #332315;
+            --arena-surface: #151f2f;
+            --arena-surface-raised: #1c293b;
+            --arena-border: #2d4056;
+            --arena-text: #f4f7fb;
+            --arena-muted: #b7c5d6;
         }
         .stApp {
-            background: linear-gradient(180deg, #f8fbff 0%, #ffffff 48%);
+            background: linear-gradient(180deg, #0b1220 0%, #101a2a 48%, #0b1220 100%);
+            color: var(--arena-text);
         }
         [data-testid="stSidebar"] {
-            background: var(--arena-blue);
+            background: #0a1c30;
         }
         [data-testid="stSidebar"] * {
             color: #ffffff !important;
+        }
+        [data-testid="stHeader"] {
+            background: rgba(11, 18, 32, .9);
+        }
+        [data-testid="stMetricValue"],
+        [data-testid="stMetricLabel"],
+        [data-testid="stMarkdownContainer"],
+        label,
+        p,
+        li {
+            color: var(--arena-text);
+        }
+        input,
+        textarea,
+        [data-baseweb="select"] > div,
+        [data-baseweb="input"] > div,
+        [data-testid="stNumberInput"] > div {
+            background-color: var(--arena-surface) !important;
+            color: var(--arena-text) !important;
+            border-color: var(--arena-border) !important;
+        }
+        input::placeholder,
+        textarea::placeholder {
+            color: var(--arena-muted) !important;
+        }
+        [data-baseweb="popover"],
+        [data-baseweb="menu"],
+        [role="listbox"],
+        [role="option"] {
+            background-color: var(--arena-surface-raised) !important;
+            color: var(--arena-text) !important;
+        }
+        [role="option"]:hover,
+        [role="option"][aria-selected="true"] {
+            background-color: #29415d !important;
+        }
+        [data-testid="stDataFrame"] {
+            border: 1px solid var(--arena-border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        [data-testid="stAlert"] {
+            background-color: var(--arena-surface) !important;
+            border-color: var(--arena-border) !important;
         }
         .arena-hero {
             background: linear-gradient(115deg, var(--arena-blue), var(--arena-blue-light));
@@ -487,18 +537,18 @@ def render_header() -> None:
         }
         .section-title {
             border-left: 5px solid var(--arena-orange);
-            color: var(--arena-blue);
+            color: var(--arena-text);
             font-size: 1.45rem;
             font-weight: 800;
             margin: 1.25rem 0 .75rem;
             padding-left: .75rem;
         }
         .team-card {
-            background: white;
-            border: 1px solid #dce7f1;
+            background: var(--arena-surface);
+            border: 1px solid var(--arena-border);
             border-top: 5px solid var(--arena-orange);
             border-radius: 14px;
-            box-shadow: 0 6px 16px rgba(9, 44, 76, .08);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, .24);
             min-height: 150px;
             padding: 1rem 1.1rem;
             margin-bottom: 1rem;
@@ -509,22 +559,22 @@ def render_header() -> None:
             background: var(--arena-cream);
         }
         .team-card h3 {
-            color: var(--arena-blue);
+            color: var(--arena-text);
             margin: 0 0 .4rem;
         }
         .team-card .captain {
-            color: #b75d00;
+            color: #ffb05c;
             font-weight: 700;
             margin-bottom: .55rem;
         }
         .team-card .members {
-            color: #405466;
+            color: var(--arena-muted);
             font-size: .92rem;
             line-height: 1.5;
         }
         .match-card {
-            background: #ffffff;
-            border: 1px solid #dce7f1;
+            background: var(--arena-surface);
+            border: 1px solid var(--arena-border);
             border-left: 5px solid var(--arena-blue-light);
             border-radius: 12px;
             padding: .8rem 1rem;
