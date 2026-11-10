@@ -12,14 +12,21 @@ streamlit run app.py
 
 ## Fluxo
 
-1. Cada estudante se inscreve individualmente, informando nome, gênero e ano do curso.
-2. As inscrições ficam abertas até 30/11/2026, data do torneio.
-3. Na data definida, o app sorteia automaticamente 8 equipes com 7 ou 8 atletas,
+1. Cada estudante cria um cadastro básico individual, informando nome, gênero e ano do curso.
+2. As inscrições ficam abertas até **27/11/2026 às 12:30**.
+3. Às **15:30 de 27/11/2026**, o app sorteia automaticamente 8 equipes com 7 ou 8 atletas,
    garantindo pelo menos duas mulheres em cada equipe e a presença mínima de dois homens.
-4. Depois do sorteio das equipes, a organização sorteia a chave eliminatória simples
-   de oito equipes: quartas, semifinais, terceiro lugar e final.
+4. O mesmo sorteio cria automaticamente a chave eliminatória simples de oito equipes:
+   quartas, semifinais, terceiro lugar e final.
 5. Apostadores identificam-se e usam um saldo inicial de 1.000 pontos virtuais.
 6. Em **Painel administrativo**, entre com a senha configurada e lance os resultados.
+
+Antes do sorteio, somente o administrador visualiza a relação completa de inscritos.
+Após o sorteio, a tela principal exibe as equipes formadas, seus integrantes e os
+confrontos; cada competidor também vê em destaque a equipe em que caiu.
+Os cadastros e o resultado do sorteio são mantidos em SQLite para serem compartilhados
+entre as sessões dos participantes. O caminho pode ser alterado pela variável
+`ARENA_DATABASE_PATH`.
 
 O regulamento considera estudantes do 1º e 2º ano de Educação Física, partidas de
 10 minutos corridos e desempate por tiros de 7 metros. A relação de atletas fica
