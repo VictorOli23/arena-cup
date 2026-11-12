@@ -2,6 +2,9 @@ import os
 import random
 import json
 import sqlite3
+import hashlib
+import hmac
+import secrets
 from html import escape
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
@@ -76,8 +79,87 @@ def initialize_database() -> None:
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             )
-            """
+            """,
         )
+        execute_query(
+            connection,
+            """
+            CREATE TABLE IF NOT EXISTS accounts (
+                name_key TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                password_hash TEXT NOT NULL
+            )
+            """,
+        )
+
+
+def account_name_key(name: str) -> str:
+    return " ".join(name.strip().casefold().split())
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, 310_000
+    )
+    return f"{salt.hex()}:{digest.hex()}"
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        salt_hex, digest_hex = stored_hash.split(":", 1)
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(digest_hex)
+    except ValueError:
+        return False
+    actual = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, 310_000
+    )
+    return hmac.compare_digest(actual, expected)
+
+
+def create_account(name: str, password: str) -> bool:
+    name = " ".join(name.strip().split())
+    with database_connection() as connection:
+        existing = execute_query(
+            connection,
+            "SELECT name_key FROM accounts WHERE name_key = ?",
+            (account_name_key(name),),
+        ).fetchone()
+        if existing:
+            return False
+        execute_query(
+            connection,
+            """
+            INSERT INTO accounts (name_key, name, password_hash)
+            VALUES (?, ?, ?)
+            """,
+            (account_name_key(name), name, hash_password(password)),
+        )
+    return True
+
+
+def authenticate_account(name: str, password: str) -> str | None:
+    with database_connection() as connection:
+        account = execute_query(
+            connection,
+            "SELECT name, password_hash FROM accounts WHERE name_key = ?",
+            (account_name_key(name),),
+        ).fetchone()
+    if account and verify_password(password, account["password_hash"]):
+        return account["name"]
+    return None
+
+
+def participant_by_name(name: str) -> dict[str, Any] | None:
+    return next(
+        (
+            participant
+            for participant in st.session_state.participants
+            if account_name_key(participant["name"]) == account_name_key(name)
+        ),
+        None,
+    )
 
 
 def load_shared_state() -> None:
@@ -156,6 +238,8 @@ def initialize_state() -> None:
         "bets": [],
         "audit_log": [],
         "admin_authenticated": False,
+        "account_authenticated": False,
+        "account_name": "",
         "entry_completed": False,
         "entry_profile": "",
         "entry_name": "",
@@ -464,13 +548,13 @@ def render_header() -> None:
             --arena-muted: #b7c5d6;
         }
         .stApp {
-            background: linear-gradient(180deg, #0b1220 0%, #101a2a 48%, #0b1220 100%);
+            background: #000000 !important;
             color: var(--arena-text);
         }
         [data-testid="stAppViewContainer"],
         [data-testid="stAppViewContainer"] > .main,
         [data-testid="stAppViewContainer"] .main .block-container {
-            background: transparent !important;
+            background: #000000 !important;
         }
         [data-testid="stAppViewContainer"] .main .block-container {
             color: var(--arena-text) !important;
@@ -665,98 +749,124 @@ def render_regulation() -> None:
     )
 
 
+def render_registration_page() -> None:
+    st.header("Inscrição no torneio")
+    if st.session_state.teams or st.session_state.matches:
+        st.warning("As inscrições estão bloqueadas porque o sorteio já foi realizado.")
+        return
+    existing = participant_by_name(st.session_state.account_name)
+    if existing:
+        st.success(
+            f"Você já está inscrito como **{existing['name']}**. "
+            "Não é possível realizar uma segunda inscrição."
+        )
+        return
+    if not registration_is_open():
+        st.error("As inscrições foram encerradas em 27/11/2026 às 12:30.")
+        return
+    st.write("Complete seus dados uma única vez para participar do sorteio das equipes.")
+    with st.form("competitor_registration"):
+        participant_gender = st.selectbox(
+            "Gênero para composição das equipes", ["Mulher", "Homem"]
+        )
+        participant_year = st.selectbox("Ano do curso", ["1º ano", "2º ano"])
+        submitted = st.form_submit_button("Confirmar inscrição", type="primary")
+    if submitted:
+        if len(st.session_state.participants) >= TEAM_COUNT * MAX_TEAM_SIZE:
+            st.error("As inscrições atingiram o limite de 64 atletas.")
+            return
+        participant = {
+            "id": st.session_state.next_participant_id,
+            "name": st.session_state.account_name,
+            "gender": participant_gender,
+            "year": participant_year,
+        }
+        st.session_state.participants.append(participant)
+        save_participant(participant)
+        st.session_state.entry_participant_id = participant["id"]
+        st.session_state.next_participant_id += 1
+        add_audit(f"Atleta {participant['name']} realizou cadastro individual.")
+        st.success("Inscrição realizada com sucesso.")
+        st.rerun()
+
+
 def render_entry_screen() -> bool:
     if st.session_state.entry_completed:
         return True
 
-    st.title("🏆 Arena Cup")
-    st.subheader("Acesso ao Arena Cup")
-    st.write("Faça um cadastro básico para acompanhar sua equipe após o sorteio.")
+    st.title("Acesso ao Arena Cup")
+    access_mode = st.radio(
+        "Escolha uma opção",
+        ["Entrar", "Criar conta", "Regulamento", "Acesso administrativo"],
+        horizontal=True,
+    )
+    if access_mode == "Regulamento":
+        render_regulation()
+        return False
 
-    with st.form("entry_form"):
-        profile = st.radio(
-            "Selecione uma opção",
-            ["Competidor", "Apostador", "Administrador"],
-            horizontal=True,
-        )
-        name = st.text_input(
-            "Nome completo",
-            placeholder="Digite seu nome completo",
-        )
-        participant_gender = "Mulher"
-        participant_year = "1º ano"
-        if profile == "Competidor":
-            participant_gender = st.selectbox(
-                "Gênero para composição das equipes",
-                ["Mulher", "Homem"],
-            )
-            participant_year = st.selectbox("Ano do curso", ["1º ano", "2º ano"])
-        admin_password = ""
-        if profile == "Administrador":
-            admin_password = st.text_input(
-                "Senha do administrador",
-                type="password",
-                placeholder="Digite a senha administrativa",
-            )
-        entered = st.form_submit_button("Entrar", type="primary", use_container_width=True)
-
-    if entered:
-        if not name.strip():
-            st.error("Digite seu nome para continuar.")
-        elif profile == "Competidor":
-            existing = next(
-                (
-                    participant
-                    for participant in st.session_state.participants
-                    if participant["name"].casefold() == name.strip().casefold()
-                ),
-                None,
-            )
-            if existing:
-                st.session_state.entry_participant_id = existing["id"]
-            elif not registration_is_open():
-                st.error("As inscrições foram encerradas em 27/11/2026 às 12:30.")
-                return False
-            elif len(st.session_state.participants) >= TEAM_COUNT * MAX_TEAM_SIZE:
-                st.error("As inscrições atingiram o limite de 64 atletas.")
-                return False
-            else:
-                participant = {
-                    "id": st.session_state.next_participant_id,
-                    "name": name.strip(),
-                    "gender": participant_gender,
-                    "year": participant_year,
-                }
-                st.session_state.participants.append(participant)
-                save_participant(participant)
-                st.session_state.entry_participant_id = participant["id"]
-                st.session_state.next_participant_id += 1
-                add_audit(f"Atleta {name.strip()} realizou cadastro individual.")
-                st.success("Cadastro realizado com sucesso.")
-        if profile == "Administrador" and not ADMIN_PASSWORD:
-            st.error("O painel administrativo ainda não foi configurado.")
-        elif profile == "Administrador" and admin_password != ADMIN_PASSWORD:
-            st.error("Senha administrativa incorreta.")
-        elif profile != "Competidor" or st.session_state.entry_participant_id:
-            st.session_state.entry_profile = profile
-            st.session_state.entry_name = name.strip()
-            st.session_state.entry_completed = True
-            if profile == "Apostador":
-                st.session_state.current_bettor = name.strip()
-            elif profile == "Administrador":
+    if access_mode == "Acesso administrativo":
+        with st.form("admin_entry"):
+            admin_password = st.text_input("Senha do administrador", type="password")
+            submitted = st.form_submit_button("Entrar", type="primary")
+        if submitted:
+            if not ADMIN_PASSWORD:
+                st.error("O painel administrativo ainda não foi configurado.")
+            elif admin_password == ADMIN_PASSWORD:
                 st.session_state.admin_authenticated = True
-            add_audit(f"{profile} {name.strip()} entrou no sistema.")
+                st.session_state.entry_profile = "Administrador"
+                st.session_state.entry_name = "Administrador"
+                st.session_state.entry_completed = True
+                st.rerun()
+            else:
+                st.error("Senha administrativa incorreta.")
+        return False
+
+    if access_mode == "Criar conta":
+        st.write("Crie uma conta com seu nome completo e uma senha.")
+        with st.form("account_creation"):
+            name = st.text_input("Nome completo")
+            password = st.text_input("Senha", type="password")
+            password_confirmation = st.text_input("Confirme a senha", type="password")
+            submitted = st.form_submit_button("Criar conta", type="primary")
+        if submitted:
+            if len(" ".join(name.split())) < 3:
+                st.error("Informe seu nome completo.")
+            elif len(password) < 6:
+                st.error("A senha deve ter pelo menos 6 caracteres.")
+            elif password != password_confirmation:
+                st.error("As senhas não conferem.")
+            elif not create_account(name, password):
+                st.error("Já existe uma conta com esse nome.")
+            else:
+                st.success("Conta criada. Agora selecione “Entrar” para acessar.")
+        return False
+
+    with st.form("account_login"):
+        name = st.text_input("Nome completo")
+        password = st.text_input("Senha", type="password")
+        submitted = st.form_submit_button("Entrar", type="primary")
+    if submitted:
+        authenticated_name = authenticate_account(name, password)
+        if authenticated_name:
+            st.session_state.account_authenticated = True
+            st.session_state.account_name = authenticated_name
+            st.session_state.entry_name = authenticated_name
+            st.session_state.entry_profile = "Competidor"
+            existing = participant_by_name(authenticated_name)
+            st.session_state.entry_participant_id = existing["id"] if existing else None
+            st.session_state.entry_completed = True
             st.rerun()
+        else:
+            st.error("Nome ou senha inválidos.")
 
     return False
 
 
 initialize_state()
 scheduled_draw_check()
+render_header()
 if not render_entry_screen():
     st.stop()
-
-render_header()
 
 with st.sidebar:
     st.header("Navegação")
@@ -767,10 +877,12 @@ with st.sidebar:
         st.session_state.entry_name = ""
         st.session_state.entry_participant_id = None
         st.session_state.admin_authenticated = False
+        st.session_state.account_authenticated = False
+        st.session_state.account_name = ""
         st.rerun()
     st.divider()
     if st.session_state.entry_profile == "Competidor":
-        available_pages = ["Tela principal", "Regulamento"]
+        available_pages = ["Inscrição", "Apostas", "Regulamento"]
     elif st.session_state.entry_profile == "Administrador":
         available_pages = ["Painel administrativo", "Regulamento"]
     else:
@@ -787,7 +899,9 @@ with st.sidebar:
 
 if page == "Regulamento":
     render_regulation()
-elif page in ("Tela principal", "Confrontos e apostas"):
+elif page == "Inscrição":
+    render_registration_page()
+elif page in ("Tela principal", "Confrontos e apostas", "Apostas"):
     st.markdown('<div class="section-title">Painel do torneio</div>', unsafe_allow_html=True)
     metric_a, metric_b, metric_c = st.columns(3)
     with metric_a:
@@ -847,7 +961,7 @@ elif page in ("Tela principal", "Confrontos e apostas"):
         )
     user = st.text_input(
         "Seu nome",
-        value=st.session_state.entry_name if st.session_state.entry_profile == "Apostador" else "",
+        value=st.session_state.entry_name,
         placeholder="Digite seu nome para participar das apostas",
         key="current_bettor",
     ).strip()

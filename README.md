@@ -34,8 +34,10 @@ A interface usa uma identidade visual de competição de handebol, com painel do
 cards das equipes, capitão em destaque, indicadores de atletas/confrontos e confrontos
 organizados em uma chave visual.
 
-O regulamento completo também fica disponível na página **Regulamento** dentro do site,
-para competidores, apostadores e administradores.
+O regulamento completo fica disponível na tela inicial e na página **Regulamento**,
+sem exigir inscrição ou login. Competidores criam uma conta com nome completo e senha,
+entram no sistema e escolhem entre realizar a inscrição ou acessar as apostas. A conta
+impede que o mesmo competidor faça duas inscrições.
 
 O regulamento considera estudantes do 1º e 2º ano de Educação Física, partidas de
 10 minutos corridos e desempate por tiros de 7 metros. A relação de atletas fica
