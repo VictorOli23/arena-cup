@@ -467,8 +467,16 @@ def render_header() -> None:
             background: linear-gradient(180deg, #0b1220 0%, #101a2a 48%, #0b1220 100%);
             color: var(--arena-text);
         }
+        [data-testid="stAppViewContainer"],
+        [data-testid="stAppViewContainer"] > .main,
+        [data-testid="stAppViewContainer"] .main .block-container {
+            background: transparent !important;
+        }
+        [data-testid="stAppViewContainer"] .main .block-container {
+            color: var(--arena-text) !important;
+        }
         [data-testid="stSidebar"] {
-            background: #0a1c30;
+            background: #0a1c30 !important;
         }
         [data-testid="stSidebar"] * {
             color: #ffffff !important;
@@ -479,10 +487,23 @@ def render_header() -> None:
         [data-testid="stMetricValue"],
         [data-testid="stMetricLabel"],
         [data-testid="stMarkdownContainer"],
+        [data-testid="stMarkdownContainer"] h1,
+        [data-testid="stMarkdownContainer"] h2,
+        [data-testid="stMarkdownContainer"] h3,
+        [data-testid="stMarkdownContainer"] h4,
         label,
         p,
         li {
-            color: var(--arena-text);
+            color: var(--arena-text) !important;
+        }
+        [data-testid="stCaptionContainer"] {
+            color: var(--arena-muted) !important;
+        }
+        [data-testid="stMetricValue"] {
+            color: #ffffff !important;
+        }
+        [data-testid="stMetricLabel"] {
+            color: var(--arena-muted) !important;
         }
         input,
         textarea,
@@ -516,6 +537,9 @@ def render_header() -> None:
         [data-testid="stAlert"] {
             background-color: var(--arena-surface) !important;
             border-color: var(--arena-border) !important;
+        }
+        [data-testid="stAlert"] p {
+            color: var(--arena-text) !important;
         }
         .arena-hero {
             background: linear-gradient(115deg, var(--arena-blue), var(--arena-blue-light));
@@ -597,6 +621,47 @@ def render_header() -> None:
     st.warning(
         "Modo demonstração: as apostas usam pontos virtuais e não envolvem dinheiro real. "
         "Qualquer ajuste administrativo fica registrado no log."
+    )
+
+
+def render_regulation() -> None:
+    st.markdown('<div class="section-title">Regulamento Arena Cup</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        ### 1. Participação
+        - O torneio é destinado a estudantes do **1º e 2º ano de Educação Física**.
+        - A inscrição é individual e deve ser feita com nome, gênero e ano do curso.
+        - As inscrições ficam abertas até **27/11/2026 às 12:30**.
+
+        ### 2. Sorteio das equipes
+        - Serão formadas **8 equipes**, com **7 ou 8 atletas** cada.
+        - Cada equipe terá no mínimo **2 mulheres e 2 homens**.
+        - O sorteio das equipes e dos capitães ocorrerá automaticamente em
+          **27/11/2026 às 15:30**.
+        - Depois do sorteio, as inscrições e a composição das equipes ficam bloqueadas.
+
+        ### 3. Partidas
+        - A competição será disputada em chave eliminatória com quartas de final,
+          semifinais, disputa de terceiro lugar e final.
+        - Cada partida terá **10 minutos corridos**.
+        - Em caso de empate, a decisão será por **tiros de 7 metros**.
+        - O resultado oficial é lançado pela administração e fica registrado no log
+          de auditoria.
+
+        ### 4. Apostas demonstrativas
+        - As apostas usam exclusivamente **pontos virtuais**; não há dinheiro real.
+        - Cada apostador começa com **1.000 pontos virtuais**.
+        - É permitida uma aposta por usuário em cada confronto enquanto ele estiver
+          agendado.
+        - Os resultados lançados pela administração liquidam automaticamente as apostas.
+
+        ### 5. Integridade e convivência
+        - A participação deve respeitar os colegas, a organização e o espírito esportivo.
+        - Correções administrativas devem ser justificadas e ficam registradas no log.
+        - A organização poderá impedir cadastros incorretos ou duplicados para preservar
+          a organização do torneio.
+        """,
+        unsafe_allow_html=False,
     )
 
 
@@ -705,11 +770,11 @@ with st.sidebar:
         st.rerun()
     st.divider()
     if st.session_state.entry_profile == "Competidor":
-        available_pages = ["Tela principal"]
+        available_pages = ["Tela principal", "Regulamento"]
     elif st.session_state.entry_profile == "Administrador":
-        available_pages = ["Painel administrativo"]
+        available_pages = ["Painel administrativo", "Regulamento"]
     else:
-        available_pages = ["Confrontos e apostas"]
+        available_pages = ["Confrontos e apostas", "Regulamento"]
     page = st.radio(
         "Ir para",
         available_pages,
@@ -720,7 +785,9 @@ with st.sidebar:
         st.metric("Atletas inscritos", len(st.session_state.participants))
     st.metric("Confrontos", len(st.session_state.matches))
 
-if page == "Tela principal":
+if page == "Regulamento":
+    render_regulation()
+elif page in ("Tela principal", "Confrontos e apostas"):
     st.markdown('<div class="section-title">Painel do torneio</div>', unsafe_allow_html=True)
     metric_a, metric_b, metric_c = st.columns(3)
     with metric_a:
