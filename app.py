@@ -580,7 +580,7 @@ def settle_bets(match: dict[str, Any]) -> None:
             bet["status"] = "Perdida"
 
 
-def render_header() -> None:
+def render_header(show_intro: bool = True) -> None:
     st.markdown(
         """
         <style>
@@ -740,20 +740,21 @@ def render_header() -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.markdown(
-        """
-        <div class="arena-hero">
-            <h1>🏆 Arena Cup</h1>
-            <p>Torneio de handebol misto • integração, respeito e espírito esportivo</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.caption("Inscrição individual, sorteio automático de equipes e confrontos.")
-    st.warning(
-        "Modo demonstração: as apostas usam pontos virtuais e não envolvem dinheiro real. "
-        "Qualquer ajuste administrativo fica registrado no log."
-    )
+    if show_intro:
+        st.markdown(
+            """
+            <div class="arena-hero">
+                <h1>🏆 Arena Cup</h1>
+                <p>Torneio de handebol misto • integração, respeito e espírito esportivo</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.caption("Inscrição individual, sorteio automático de equipes e confrontos.")
+        st.warning(
+            "Modo demonstração: as apostas usam pontos virtuais e não envolvem dinheiro real. "
+            "Qualquer ajuste administrativo fica registrado no log."
+        )
 
 
 def render_regulation() -> None:
@@ -874,128 +875,202 @@ def render_results_page() -> None:
                 )
 
 
+@st.dialog("Regulamento - Arena Cup")
+def render_regulation_dialog() -> None:
+    render_regulation()
+    if st.button("Entendi e concordo", type="primary", width="stretch"):
+        st.rerun()
+
+
+@st.dialog("Área administrativa")
+def render_admin_dialog() -> None:
+    st.caption("Acesso restrito à comissão organizadora.")
+    with st.form("admin_entry"):
+        admin_password = st.text_input("Senha do administrador", type="password")
+        submitted = st.form_submit_button("Entrar", type="primary", width="stretch")
+    if submitted:
+        if not ADMIN_PASSWORD:
+            st.error("O painel administrativo ainda não foi configurado.")
+        elif admin_password == ADMIN_PASSWORD:
+            st.session_state.admin_authenticated = True
+            st.session_state.entry_profile = "Administrador"
+            st.session_state.entry_name = "Administrador"
+            st.session_state.entry_completed = True
+            st.rerun()
+        else:
+            st.error("Senha administrativa incorreta.")
+
+
 def render_entry_screen() -> bool:
     if st.session_state.entry_completed:
         return True
 
-    top_left, top_right = st.columns([5, 2])
-    with top_left:
-        st.markdown(
-            '<div style="text-align:center;font-size:2.25rem;font-weight:800;'
-            'line-height:1.1;margin-top:.35rem;">Acesso ao Arena Cup</div>',
-            unsafe_allow_html=True,
-        )
-    with top_right:
-        admin_column, regulation_column = st.columns(2)
-        with admin_column:
-            if st.button("Área administrativa", key="open_admin"):
-                st.session_state.entry_mode = "admin"
-                st.rerun()
-        with regulation_column:
-            if st.button("Regulamento", key="open_regulation"):
-                st.session_state.entry_mode = "regulation"
-                st.rerun()
+    st.markdown(
+        """
+        <style>
+        .arena-entry-banner {
+            background: linear-gradient(135deg, #0a3656 0%, #0d4b7a 55%, #072c49 100%);
+            border: 1px solid rgba(56, 189, 248, .25);
+            border-radius: 18px;
+            box-shadow: 0 16px 36px rgba(2, 132, 199, .12);
+            padding: 1.65rem 1.25rem;
+            text-align: center;
+            margin: .45rem 0 1rem;
+        }
+        .arena-entry-banner h1 {
+            color: #ffffff;
+            font-size: clamp(2.2rem, 5vw, 4rem);
+            letter-spacing: -.04em;
+            margin: 0;
+        }
+        .arena-entry-banner p {
+            color: #bae6fd;
+            margin: .45rem 0 0;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    access_mode = st.session_state.entry_mode
-    if access_mode == "regulation":
-        left, center, right = st.columns([1, 2, 1])
-        with center:
-            render_regulation()
-            if st.button("Voltar para o login", key="back_from_regulation"):
-                st.session_state.entry_mode = "login"
-                st.rerun()
-        return False
+    spacer, regulation_column, admin_column = st.columns([5, 1.1, 1.35])
+    with regulation_column:
+        if st.button("Regulamento", key="open_regulation", width="stretch"):
+            render_regulation_dialog()
+            return False
+    with admin_column:
+        if st.button("Área administrativa", key="open_admin", width="stretch"):
+            render_admin_dialog()
+            return False
 
-    if access_mode == "admin":
-        left, center, right = st.columns([1, 1, 1])
-        with center:
-            st.subheader("Área administrativa")
-            with st.form("admin_entry"):
-                admin_password = st.text_input("Senha do administrador", type="password")
-                submitted = st.form_submit_button("Entrar", type="primary")
-            if submitted:
-                if not ADMIN_PASSWORD:
-                    st.error("O painel administrativo ainda não foi configurado.")
-                elif admin_password == ADMIN_PASSWORD:
-                    st.session_state.admin_authenticated = True
-                    st.session_state.entry_profile = "Administrador"
-                    st.session_state.entry_name = "Administrador"
-                    st.session_state.entry_completed = True
-                    st.rerun()
-                else:
-                    st.error("Senha administrativa incorreta.")
-            if st.button("Voltar para o login", key="back_from_admin"):
-                st.session_state.entry_mode = "login"
-                st.rerun()
-        return False
+    st.markdown(
+        """
+        <div class="arena-entry-banner">
+            <h1>🏆 Arena Cup</h1>
+            <p>Torneio de handebol misto • integração, respeito e espírito esportivo</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="text-align:center;color:#94a3b8;font-size:.9rem;">'
+        'Inscrição individual, sorteio automático de equipes e confrontos.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    st.warning(
+        "Modo demonstração: as apostas usam pontos virtuais e não envolvem dinheiro real.",
+        icon=":material/verified_user:",
+    )
 
-    if access_mode == "register":
-        left, center, right = st.columns([1, 1, 1])
-        with center:
-            st.subheader("Criar cadastro")
-            st.write("Crie uma conta com seu nome completo e uma senha.")
-            with st.form("account_creation"):
-                name = st.text_input("Nome completo")
-                password = st.text_input("Senha", type="password")
-                password_confirmation = st.text_input("Confirme a senha", type="password")
-                submitted = st.form_submit_button("Criar conta", type="primary")
-            if submitted:
-                if len(" ".join(name.split())) < 3:
-                    st.error("Informe seu nome completo.")
-                elif len(password) < 6:
-                    st.error("A senha deve ter pelo menos 6 caracteres.")
-                elif password != password_confirmation:
-                    st.error("As senhas não conferem.")
-                elif not create_account(name, password):
-                    st.error("Já existe uma conta com esse nome.")
-                else:
-                    st.success("Conta criada. Agora faça login para acessar.")
-            if st.button("Voltar para o login", key="back_from_register"):
-                st.session_state.entry_mode = "login"
-                st.rerun()
-        return False
-
-    left, center, right = st.columns([1, 1, 1])
+    left, center, right = st.columns([1, 1.15, 1])
     with center:
-        st.markdown(
-            '<div style="text-align:center;font-size:1.35rem;font-weight:700;">Login</div>',
-            unsafe_allow_html=True,
-        )
-        with st.form("account_login"):
-            name = st.text_input("Nome completo")
-            password = st.text_input("Senha", type="password")
-            submitted = st.form_submit_button("Entrar", type="primary")
-        if submitted:
-            authenticated_name = authenticate_account(name, password)
-            if authenticated_name:
-                st.session_state.account_authenticated = True
-                st.session_state.account_name = authenticated_name
-                st.session_state.entry_name = authenticated_name
-                st.session_state.entry_profile = "Competidor"
-                existing = participant_by_name(authenticated_name)
-                st.session_state.entry_participant_id = existing["id"] if existing else None
-                st.session_state.entry_completed = True
-                st.rerun()
-            else:
-                st.error("Nome ou senha inválidos.")
+        with st.container(border=True):
+            st.markdown(
+                '<div style="text-align:center;">'
+                '<div style="font-size:1.35rem;font-weight:800;">Acesso ao Arena Cup</div>'
+                '<div style="color:#94a3b8;font-size:.85rem;margin-top:.25rem;">'
+                'Entre com suas credenciais de atleta participante'
+                '</div></div>',
+                unsafe_allow_html=True,
+            )
 
-        st.markdown(
-            '<div style="text-align:center;margin-top:.5rem;">Ainda não tem cadastro?</div>',
-            unsafe_allow_html=True,
-        )
-        if st.button("Registre-se", key="open_register", width="stretch"):
-            st.session_state.entry_mode = "register"
-            st.rerun()
+            if st.session_state.entry_mode == "register":
+                st.markdown(
+                    '<div style="text-align:center;font-weight:700;color:#38bdf8;margin:.8rem 0;">'
+                    'Registre-se</div>',
+                    unsafe_allow_html=True,
+                )
+                with st.form("account_creation"):
+                    name = st.text_input("Nome completo")
+                    gender = st.selectbox("Gênero", ["Mulher", "Homem"])
+                    year = st.selectbox("Ano do curso", ["1º ano", "2º ano", "3º ano", "4º ano"])
+                    password = st.text_input("Senha", type="password")
+                    password_confirmation = st.text_input("Confirme a senha", type="password")
+                    submitted = st.form_submit_button(
+                        "Concluir inscrição", type="primary", width="stretch"
+                    )
+                if submitted:
+                    if len(" ".join(name.split())) < 3:
+                        st.error("Informe seu nome completo.")
+                    elif len(password) < 6:
+                        st.error("A senha deve ter pelo menos 6 caracteres.")
+                    elif password != password_confirmation:
+                        st.error("As senhas não conferem.")
+                    elif not registration_is_open():
+                        st.error("As inscrições foram encerradas.")
+                    elif participant_by_name(name):
+                        st.error("Já existe uma inscrição com esse nome.")
+                    elif not create_account(name, password):
+                        st.error("Já existe uma conta com esse nome.")
+                    elif len(st.session_state.participants) >= TEAM_COUNT * MAX_TEAM_SIZE:
+                        st.error("As inscrições atingiram o limite de 64 atletas.")
+                    else:
+                        participant = {
+                            "id": st.session_state.next_participant_id,
+                            "name": " ".join(name.strip().split()),
+                            "gender": gender,
+                            "year": year,
+                        }
+                        st.session_state.participants.append(participant)
+                        save_participant(participant)
+                        st.session_state.next_participant_id += 1
+                        st.session_state.account_authenticated = True
+                        st.session_state.account_name = participant["name"]
+                        st.session_state.entry_name = participant["name"]
+                        st.session_state.entry_profile = "Competidor"
+                        st.session_state.entry_participant_id = participant["id"]
+                        st.session_state.entry_completed = True
+                        add_audit(f"Atleta {participant['name']} realizou cadastro individual.")
+                        st.success("Inscrição realizada com sucesso.")
+                        st.rerun()
+
+                if st.button("Voltar para o login", key="back_from_register", width="stretch"):
+                    st.session_state.entry_mode = "login"
+                    st.rerun()
+            else:
+                st.markdown(
+                    '<div style="text-align:center;font-weight:700;color:#38bdf8;margin:.8rem 0;">'
+                    'Login</div>',
+                    unsafe_allow_html=True,
+                )
+                with st.form("account_login"):
+                    name = st.text_input("Nome completo")
+                    password = st.text_input("Senha", type="password")
+                    submitted = st.form_submit_button("Entrar", type="primary", width="stretch")
+                if submitted:
+                    authenticated_name = authenticate_account(name, password)
+                    if authenticated_name:
+                        st.session_state.account_authenticated = True
+                        st.session_state.account_name = authenticated_name
+                        st.session_state.entry_name = authenticated_name
+                        st.session_state.entry_profile = "Competidor"
+                        existing = participant_by_name(authenticated_name)
+                        st.session_state.entry_participant_id = existing["id"] if existing else None
+                        st.session_state.entry_completed = True
+                        st.rerun()
+                    else:
+                        st.error("Nome ou senha inválidos.")
+
+                st.markdown(
+                    '<div style="text-align:center;color:#94a3b8;font-size:.85rem;margin-top:.8rem;">'
+                    'Ainda não tem cadastro?'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+                if st.button("Registre-se", key="open_register", width="stretch"):
+                    st.session_state.entry_mode = "register"
+                    st.rerun()
 
     return False
 
 
 initialize_state()
 scheduled_draw_check()
-render_header()
+render_header(show_intro=False)
 if not render_entry_screen():
     st.stop()
 
+render_header(show_intro=True)
 with st.sidebar:
     st.header("Navegação")
     st.caption(f"{st.session_state.entry_profile}: {st.session_state.entry_name}")
