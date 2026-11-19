@@ -39,8 +39,8 @@ sem exigir inscrição ou login. Competidores criam uma conta com nome completo 
 entram no sistema e escolhem entre realizar a inscrição ou acessar as apostas. A conta
 impede que o mesmo competidor faça duas inscrições.
 
-O regulamento considera estudantes do 1º e 2º ano de Educação Física, partidas de
-10 minutos corridos e desempate por tiros de 7 metros. A relação de atletas fica
+O regulamento considera estudantes do 1º, 2º, 3º e 4º ano de Educação Física, partidas
+de 10 minutos corridos e desempate por tiros de 7 metros. A relação de atletas fica
 bloqueada depois do sorteio para preservar a composição das equipes.
 
 Os resultados administrativos liquidam as apostas e ficam no log de auditoria.

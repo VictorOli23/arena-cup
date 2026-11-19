@@ -713,7 +713,7 @@ def render_regulation() -> None:
     st.markdown(
         """
         ### 1. Participação
-        - O torneio é destinado a estudantes do **1º e 2º ano de Educação Física**.
+        - O torneio é destinado a estudantes do **1º, 2º, 3º e 4º ano de Educação Física**.
         - A inscrição é individual e deve ser feita com nome, gênero e ano do curso.
         - As inscrições ficam abertas até **27/11/2026 às 12:30**.
 
@@ -769,7 +769,9 @@ def render_registration_page() -> None:
         participant_gender = st.selectbox(
             "Gênero para composição das equipes", ["Mulher", "Homem"]
         )
-        participant_year = st.selectbox("Ano do curso", ["1º ano", "2º ano"])
+        participant_year = st.selectbox(
+            "Ano do curso", ["1º ano", "2º ano", "3º ano", "4º ano"]
+        )
         submitted = st.form_submit_button("Confirmar inscrição", type="primary")
     if submitted:
         if len(st.session_state.participants) >= TEAM_COUNT * MAX_TEAM_SIZE:
