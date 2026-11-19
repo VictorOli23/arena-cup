@@ -904,6 +904,12 @@ def render_entry_screen() -> bool:
     st.markdown(
         """
         <style>
+        [data-testid="stMainBlockContainer"] {
+            padding-top: 1.25rem !important;
+        }
+        [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:first-of-type {
+            margin-top: 0 !important;
+        }
         .arena-entry-banner {
             background: transparent;
             border: none;
