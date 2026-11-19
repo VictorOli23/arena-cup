@@ -304,9 +304,15 @@ def draw_is_due() -> bool:
     return current_time() >= DRAW_TIME
 
 
-def team_sizes_for(participant_count: int) -> list[int]:
-    base_size, remainder = divmod(participant_count, TEAM_COUNT)
-    return [base_size + (1 if index < remainder else 0) for index in range(TEAM_COUNT)]
+def fallback_team_count(participant_count: int) -> int:
+    if participant_count >= TEAM_COUNT * 7:
+        return TEAM_COUNT
+    return max(1, (participant_count + 7) // 8)
+
+
+def team_sizes_for(participant_count: int, team_count: int) -> list[int]:
+    base_size, remainder = divmod(participant_count, team_count)
+    return [base_size + (1 if index < remainder else 0) for index in range(team_count)]
 
 
 def balanced_participants(participants: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -328,29 +334,25 @@ def balanced_participants(participants: list[dict[str, Any]]) -> list[dict[str, 
 
 def draw_teams() -> bool:
     participants = list(st.session_state.participants)
-    if len(participants) != TEAM_COUNT * MIN_TEAM_SIZE:
+    if len(participants) < 8:
+        st.error("São necessários pelo menos 8 atletas para formar uma equipe.")
+        return False
+    if len(participants) > TEAM_COUNT * MAX_TEAM_SIZE:
         st.error(
-            f"São necessários exatamente {TEAM_COUNT * MIN_TEAM_SIZE} atletas "
-            f"para formar {TEAM_COUNT} equipes de {MIN_TEAM_SIZE} jogadores."
+            f"O limite é de {TEAM_COUNT * MAX_TEAM_SIZE} atletas "
+            f"({MAX_TEAM_SIZE} por equipe)."
         )
         return False
+
+    team_count = (
+        TEAM_COUNT
+        if len(participants) >= TEAM_COUNT * 7
+        else fallback_team_count(len(participants))
+    )
+    sizes = team_sizes_for(len(participants), team_count)
 
     women = [participant for participant in participants if participant["gender"] == "Mulher"]
     men = [participant for participant in participants if participant["gender"] == "Homem"]
-    if len(women) < TEAM_COUNT * 2:
-        st.error(
-            f"São necessárias pelo menos {TEAM_COUNT * 2} mulheres "
-            "para garantir duas em cada equipe."
-        )
-        return False
-    if len(men) < TEAM_COUNT * 2:
-        st.error(
-            f"São necessários pelo menos {TEAM_COUNT * 2} homens "
-            "para manter a composição mínima prevista no regulamento."
-        )
-        return False
-
-    sizes = team_sizes_for(len(participants))
     teams = [
         {
             "id": index + 1,
@@ -359,19 +361,30 @@ def draw_teams() -> bool:
             "captain": "",
             "_year_counts": {},
         }
-        for index in range(TEAM_COUNT)
+        for index in range(team_count)
     ]
 
-    women_per_team = 2
+    women_per_team = 2 if len(women) >= team_count * 2 else 1 if len(women) >= team_count else 0
+    men_per_team = 2 if len(men) >= team_count * 2 else 1 if len(men) >= team_count else 0
     balanced_women = balanced_participants(women)
     balanced_men = balanced_participants(men)
-    for _ in range(women_per_team):
-        for team in teams:
-            participant = balanced_women.pop()
-            team["members"].append(participant)
-            team["_year_counts"][participant["year"]] = (
-                team["_year_counts"].get(participant["year"], 0) + 1
-            )
+    for team in teams:
+        for _ in range(women_per_team):
+            if balanced_women:
+                participant = balanced_women.pop()
+                team["members"].append(participant)
+                team["_year_counts"][participant["year"]] = (
+                    team["_year_counts"].get(participant["year"], 0) + 1
+                )
+
+    for team in teams:
+        for _ in range(men_per_team):
+            if balanced_men:
+                participant = balanced_men.pop()
+                team["members"].append(participant)
+                team["_year_counts"][participant["year"]] = (
+                    team["_year_counts"].get(participant["year"], 0) + 1
+                )
 
     remaining = balanced_participants(balanced_women + balanced_men)
     for participant in remaining:
@@ -407,10 +420,11 @@ def draw_teams() -> bool:
         del team["_year_counts"]
 
     st.session_state.teams = teams
-    st.session_state.next_team_id = TEAM_COUNT + 1
+    st.session_state.next_team_id = team_count + 1
     add_audit(
         f"Sorteio automático realizado em {current_time().strftime('%d/%m/%Y às %H:%M')}: "
-        f"{len(participants)} atletas distribuídos em {TEAM_COUNT} equipes."
+        f"{len(participants)} atletas distribuídos em {team_count} equipes"
+        + ("." if len(participants) == TEAM_COUNT * MAX_TEAM_SIZE else " por falta de participantes suficientes.")
     )
     return True
 
@@ -781,6 +795,9 @@ def render_regulation() -> None:
           As demais vagas poderão ser preenchidas sem restrição de gênero.
         - O sorteio ocorre após o encerramento das inscrições e busca distribuir participantes
           entre os grupos e os quatro anos do curso.
+        - Quando houver menos de 64 inscritos, a organização poderá formar o maior número
+          possível de equipes com até 8 integrantes, reduzindo o número mínimo de mulheres
+          e homens por equipe conforme a quantidade disponível.
         - Após o sorteio, não serão permitidas trocas de integrantes, salvo situação excepcional
           aprovada pela organização.
         - Não poderá participar atleta não inscrito ou vinculado a outra equipe.

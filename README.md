@@ -18,6 +18,9 @@ streamlit run app.py
    8 atletas, totalizando 64 participantes. Cada equipe terá pelo menos 2 mulheres e
    2 homens. O sorteio distribui participantes das quatro turmas para evitar a concentração
    de uma única turma. O capitão de cada equipe também é escolhido aleatoriamente.
+   Caso não haja participantes suficientes para a composição completa, o sorteio forma o
+   maior número possível de equipes com até 8 atletas e ajusta a composição mínima de
+   gênero conforme a disponibilidade.
 4. O mesmo sorteio cria automaticamente a chave eliminatória simples de oito equipes:
    quartas, semifinais, terceiro lugar e final.
 5. Apostadores identificam-se e usam um saldo inicial de 1.000 pontos virtuais.
