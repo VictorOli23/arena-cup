@@ -878,94 +878,114 @@ def render_entry_screen() -> bool:
     if st.session_state.entry_completed:
         return True
 
-    title_column, admin_column = st.columns([3, 1])
-    with admin_column:
-        if st.button("Área administrativa", key="open_admin"):
-            st.session_state.entry_mode = "admin"
-            st.rerun()
-    with title_column:
-        st.title("Acesso ao Arena Cup")
+    top_left, top_right = st.columns([5, 2])
+    with top_left:
+        st.markdown(
+            '<div style="text-align:center;font-size:2.25rem;font-weight:800;'
+            'line-height:1.1;margin-top:.35rem;">Acesso ao Arena Cup</div>',
+            unsafe_allow_html=True,
+        )
+    with top_right:
+        admin_column, regulation_column = st.columns(2)
+        with admin_column:
+            if st.button("Área administrativa", key="open_admin"):
+                st.session_state.entry_mode = "admin"
+                st.rerun()
+        with regulation_column:
+            if st.button("Regulamento", key="open_regulation"):
+                st.session_state.entry_mode = "regulation"
+                st.rerun()
 
     access_mode = st.session_state.entry_mode
     if access_mode == "regulation":
-        render_regulation()
-        if st.button("Voltar para o login", key="back_from_regulation"):
-            st.session_state.entry_mode = "login"
-            st.rerun()
+        left, center, right = st.columns([1, 2, 1])
+        with center:
+            render_regulation()
+            if st.button("Voltar para o login", key="back_from_regulation"):
+                st.session_state.entry_mode = "login"
+                st.rerun()
         return False
 
     if access_mode == "admin":
-        st.subheader("Área administrativa")
-        with st.form("admin_entry"):
-            admin_password = st.text_input("Senha do administrador", type="password")
-            submitted = st.form_submit_button("Entrar", type="primary")
-        if submitted:
-            if not ADMIN_PASSWORD:
-                st.error("O painel administrativo ainda não foi configurado.")
-            elif admin_password == ADMIN_PASSWORD:
-                st.session_state.admin_authenticated = True
-                st.session_state.entry_profile = "Administrador"
-                st.session_state.entry_name = "Administrador"
-                st.session_state.entry_completed = True
+        left, center, right = st.columns([1, 1, 1])
+        with center:
+            st.subheader("Área administrativa")
+            with st.form("admin_entry"):
+                admin_password = st.text_input("Senha do administrador", type="password")
+                submitted = st.form_submit_button("Entrar", type="primary")
+            if submitted:
+                if not ADMIN_PASSWORD:
+                    st.error("O painel administrativo ainda não foi configurado.")
+                elif admin_password == ADMIN_PASSWORD:
+                    st.session_state.admin_authenticated = True
+                    st.session_state.entry_profile = "Administrador"
+                    st.session_state.entry_name = "Administrador"
+                    st.session_state.entry_completed = True
+                    st.rerun()
+                else:
+                    st.error("Senha administrativa incorreta.")
+            if st.button("Voltar para o login", key="back_from_admin"):
+                st.session_state.entry_mode = "login"
                 st.rerun()
-            else:
-                st.error("Senha administrativa incorreta.")
-        if st.button("Voltar para o login", key="back_from_admin"):
-            st.session_state.entry_mode = "login"
-            st.rerun()
         return False
 
     if access_mode == "register":
-        st.subheader("Criar cadastro")
-        st.write("Crie uma conta com seu nome completo e uma senha.")
-        with st.form("account_creation"):
-            name = st.text_input("Nome completo")
-            password = st.text_input("Senha", type="password")
-            password_confirmation = st.text_input("Confirme a senha", type="password")
-            submitted = st.form_submit_button("Criar conta", type="primary")
-        if submitted:
-            if len(" ".join(name.split())) < 3:
-                st.error("Informe seu nome completo.")
-            elif len(password) < 6:
-                st.error("A senha deve ter pelo menos 6 caracteres.")
-            elif password != password_confirmation:
-                st.error("As senhas não conferem.")
-            elif not create_account(name, password):
-                st.error("Já existe uma conta com esse nome.")
-            else:
-                st.success("Conta criada. Agora faça login para acessar.")
-        if st.button("Voltar para o login", key="back_from_register"):
-            st.session_state.entry_mode = "login"
-            st.rerun()
+        left, center, right = st.columns([1, 1, 1])
+        with center:
+            st.subheader("Criar cadastro")
+            st.write("Crie uma conta com seu nome completo e uma senha.")
+            with st.form("account_creation"):
+                name = st.text_input("Nome completo")
+                password = st.text_input("Senha", type="password")
+                password_confirmation = st.text_input("Confirme a senha", type="password")
+                submitted = st.form_submit_button("Criar conta", type="primary")
+            if submitted:
+                if len(" ".join(name.split())) < 3:
+                    st.error("Informe seu nome completo.")
+                elif len(password) < 6:
+                    st.error("A senha deve ter pelo menos 6 caracteres.")
+                elif password != password_confirmation:
+                    st.error("As senhas não conferem.")
+                elif not create_account(name, password):
+                    st.error("Já existe uma conta com esse nome.")
+                else:
+                    st.success("Conta criada. Agora faça login para acessar.")
+            if st.button("Voltar para o login", key="back_from_register"):
+                st.session_state.entry_mode = "login"
+                st.rerun()
         return False
 
-    st.subheader("Login")
-    with st.form("account_login"):
-        name = st.text_input("Nome completo")
-        password = st.text_input("Senha", type="password")
-        submitted = st.form_submit_button("Entrar", type="primary")
-    if submitted:
-        authenticated_name = authenticate_account(name, password)
-        if authenticated_name:
-            st.session_state.account_authenticated = True
-            st.session_state.account_name = authenticated_name
-            st.session_state.entry_name = authenticated_name
-            st.session_state.entry_profile = "Competidor"
-            existing = participant_by_name(authenticated_name)
-            st.session_state.entry_participant_id = existing["id"] if existing else None
-            st.session_state.entry_completed = True
-            st.rerun()
-        else:
-            st.error("Nome ou senha inválidos.")
+    left, center, right = st.columns([1, 1, 1])
+    with center:
+        st.markdown(
+            '<div style="text-align:center;font-size:1.35rem;font-weight:700;">Login</div>',
+            unsafe_allow_html=True,
+        )
+        with st.form("account_login"):
+            name = st.text_input("Nome completo")
+            password = st.text_input("Senha", type="password")
+            submitted = st.form_submit_button("Entrar", type="primary")
+        if submitted:
+            authenticated_name = authenticate_account(name, password)
+            if authenticated_name:
+                st.session_state.account_authenticated = True
+                st.session_state.account_name = authenticated_name
+                st.session_state.entry_name = authenticated_name
+                st.session_state.entry_profile = "Competidor"
+                existing = participant_by_name(authenticated_name)
+                st.session_state.entry_participant_id = existing["id"] if existing else None
+                st.session_state.entry_completed = True
+                st.rerun()
+            else:
+                st.error("Nome ou senha inválidos.")
 
-    st.markdown("Ainda não tem cadastro?")
-    if st.button("Criar cadastro", key="open_register"):
-        st.session_state.entry_mode = "register"
-        st.rerun()
-    st.divider()
-    if st.button("Regulamento", key="open_regulation"):
-        st.session_state.entry_mode = "regulation"
-        st.rerun()
+        st.markdown(
+            '<div style="text-align:center;margin-top:.5rem;">Ainda não tem cadastro?</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Registre-se", key="open_register", width="stretch"):
+            st.session_state.entry_mode = "register"
+            st.rerun()
 
     return False
 
