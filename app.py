@@ -905,10 +905,21 @@ def render_entry_screen() -> bool:
         """
         <style>
         [data-testid="stMainBlockContainer"] {
-            padding-top: 1.25rem !important;
+            padding-top: .35rem !important;
         }
         [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:first-of-type {
             margin-top: 0 !important;
+        }
+        [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:first-of-type [data-testid="stBaseButton-secondary"] {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #dbeafe !important;
+            padding: .2rem .35rem !important;
+        }
+        [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:first-of-type [data-testid="stBaseButton-secondary"]:hover {
+            background: transparent !important;
+            color: #38bdf8 !important;
         }
         .arena-entry-banner {
             background: transparent;
