@@ -14,11 +14,10 @@ streamlit run app.py
 
 1. Cada estudante cria um cadastro básico individual, informando nome, gênero e ano do curso.
 2. As inscrições ficam abertas até **27/11/2026 às 12:30**.
-3. Às **15:30 de 27/11/2026**, o app sorteia automaticamente 8 equipes com 7 ou 8 atletas,
-   garantindo pelo menos duas mulheres em cada equipe quando houver participantes suficientes.
-   Se não houver mulheres suficientes, garante pelo menos uma por equipe. O sorteio distribui
-   participantes das quatro turmas para evitar a concentração de uma única turma. O capitão
-   de cada equipe também é escolhido aleatoriamente entre seus integrantes.
+3. Às **15:30 de 27/11/2026**, o app sorteia automaticamente 8 equipes com exatamente
+   8 atletas, totalizando 64 participantes. Cada equipe terá pelo menos 2 mulheres e
+   2 homens. O sorteio distribui participantes das quatro turmas para evitar a concentração
+   de uma única turma. O capitão de cada equipe também é escolhido aleatoriamente.
 4. O mesmo sorteio cria automaticamente a chave eliminatória simples de oito equipes:
    quartas, semifinais, terceiro lugar e final.
 5. Apostadores identificam-se e usam um saldo inicial de 1.000 pontos virtuais.

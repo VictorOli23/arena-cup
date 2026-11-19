@@ -34,7 +34,7 @@ REGISTRATION_DEADLINE = datetime(2026, 11, 27, 12, 30, tzinfo=TIMEZONE)
 DRAW_TIME = datetime(2026, 11, 27, 15, 30, tzinfo=TIMEZONE)
 TOURNAMENT_DATE = date(2026, 11, 30)
 TEAM_COUNT = 8
-MIN_TEAM_SIZE = 7
+MIN_TEAM_SIZE = 8
 MAX_TEAM_SIZE = 8
 DATABASE_PATH = os.environ.get("ARENA_DATABASE_PATH", "arena_cup.db")
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
@@ -328,25 +328,19 @@ def balanced_participants(participants: list[dict[str, Any]]) -> list[dict[str, 
 
 def draw_teams() -> bool:
     participants = list(st.session_state.participants)
-    if len(participants) < TEAM_COUNT * MIN_TEAM_SIZE:
+    if len(participants) != TEAM_COUNT * MIN_TEAM_SIZE:
         st.error(
-            f"São necessários pelo menos {TEAM_COUNT * MIN_TEAM_SIZE} atletas "
-            f"para formar {TEAM_COUNT} equipes de {MIN_TEAM_SIZE}."
-        )
-        return False
-    if len(participants) > TEAM_COUNT * MAX_TEAM_SIZE:
-        st.error(
-            f"O limite é de {TEAM_COUNT * MAX_TEAM_SIZE} atletas "
-            f"({MAX_TEAM_SIZE} por equipe)."
+            f"São necessários exatamente {TEAM_COUNT * MIN_TEAM_SIZE} atletas "
+            f"para formar {TEAM_COUNT} equipes de {MIN_TEAM_SIZE} jogadores."
         )
         return False
 
     women = [participant for participant in participants if participant["gender"] == "Mulher"]
     men = [participant for participant in participants if participant["gender"] == "Homem"]
-    if len(women) < TEAM_COUNT:
+    if len(women) < TEAM_COUNT * 2:
         st.error(
-            f"São necessárias pelo menos {TEAM_COUNT} mulheres "
-            "para garantir uma em cada equipe."
+            f"São necessárias pelo menos {TEAM_COUNT * 2} mulheres "
+            "para garantir duas em cada equipe."
         )
         return False
     if len(men) < TEAM_COUNT * 2:
@@ -368,7 +362,7 @@ def draw_teams() -> bool:
         for index in range(TEAM_COUNT)
     ]
 
-    women_per_team = 2 if len(women) >= TEAM_COUNT * 2 else 1
+    women_per_team = 2
     balanced_women = balanced_participants(women)
     balanced_men = balanced_participants(men)
     for _ in range(women_per_team):
@@ -754,44 +748,110 @@ def render_header(show_intro: bool = True) -> None:
 
 
 def render_regulation() -> None:
-    st.markdown('<div class="section-title">Regulamento Arena Cup</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Regulamento Geral - Arena Cup</div>', unsafe_allow_html=True)
     st.markdown(
         """
-        ### 1. Participação
-        - O torneio é destinado a estudantes do **1º, 2º, 3º e 4º ano de Educação Física**.
-        - A inscrição é individual e deve ser feita com nome, gênero e ano do curso.
-        - As inscrições ficam abertas até **27/11/2026 às 12:30**.
+        ### Identificação
+        - **Instituição:** Centro Universitário Sagrado Coração — UNISAGRADO
+        - **Curso:** Educação Física
+        - **Disciplina:** Esportes Coletivos I
+        - **Docente:** Professora Lígia Estronioli
+        - **Participantes:** estudantes regularmente vinculados ao 1º, 2º, 3º e 4º anos
+        - **Data:** 30 de novembro de 2026
+        - **Horário:** 19h às 22h
+        - **Local:** Quadra Poliesportiva da UNISAGRADO — Bauru/SP
+        - **Formato:** 8 equipes de 8 participantes
 
-        ### 2. Sorteio das equipes
-        - Serão formadas **8 equipes**, com **7 ou 8 atletas** cada.
-        - Cada equipe terá, sempre que possível, no mínimo **2 mulheres e 2 homens**.
-          Se não houver mulheres suficientes, haverá pelo menos **1 mulher por equipe**.
-        - O sorteio distribui participantes das quatro turmas entre as equipes para
-          evitar a concentração de uma única turma.
-        - O sorteio das equipes e dos capitães ocorrerá automaticamente em
-          **27/11/2026 às 15:30**.
-        - Depois do sorteio, as inscrições e a composição das equipes ficam bloqueadas.
+        ### Objetivo
+        Promover a integração entre estudantes de diferentes anos por meio do handebol misto,
+        valorizando inclusão, cooperação, respeito e participação.
 
-        ### 3. Partidas
-        - A competição será disputada em chave eliminatória com quartas de final,
-          semifinais, disputa de terceiro lugar e final.
-        - Cada partida terá **10 minutos corridos**.
-        - Em caso de empate, a decisão será por **tiros de 7 metros**.
-        - O resultado oficial é lançado pela administração e fica registrado no log
-          de auditoria.
+        ### 1. Organização
+        O torneio será realizado em **30 de novembro de 2026**, na Quadra Poliesportiva da
+        UNISAGRADO, com abertura prevista para as 19h e encerramento aproximado às 22h.
 
-        ### 4. Apostas demonstrativas
-        - As apostas usam exclusivamente **pontos virtuais**; não há dinheiro real.
-        - Cada apostador começa com **1.000 pontos virtuais**.
-        - É permitida uma aposta por usuário em cada confronto enquanto ele estiver
-          agendado.
-        - Os resultados lançados pela administração liquidam automaticamente as apostas.
+        ### 2. Participantes
+        Poderão participar estudantes regularmente vinculados ao 1º, 2º, 3º e 4º anos do curso
+        de Educação Física da UNISAGRADO, respeitado o período de inscrição definido pela organização.
 
-        ### 5. Integridade e convivência
-        - A participação deve respeitar os colegas, a organização e o espírito esportivo.
-        - Correções administrativas devem ser justificadas e ficam registradas no log.
-        - A organização poderá impedir cadastros incorretos ou duplicados para preservar
-          a organização do torneio.
+        ### 3. Equipes e sorteio
+        - Serão formadas **8 equipes**, cada uma com **exatamente 8 jogadores**, totalizando
+          **64 participantes**.
+        - Cada equipe deverá conter, obrigatoriamente, no mínimo **2 mulheres e 2 homens**.
+          As demais vagas poderão ser preenchidas sem restrição de gênero.
+        - O sorteio ocorre após o encerramento das inscrições e busca distribuir participantes
+          entre os grupos e os quatro anos do curso.
+        - Após o sorteio, não serão permitidas trocas de integrantes, salvo situação excepcional
+          aprovada pela organização.
+        - Não poderá participar atleta não inscrito ou vinculado a outra equipe.
+
+        ### 4. Sistema de disputa
+        O torneio será disputado em sistema eliminatório simples: quartas de final, semifinais,
+        disputa de terceiro lugar e final. O vencedor de cada partida avança à fase seguinte.
+        As equipes derrotadas nas semifinais disputam o terceiro lugar.
+
+        ### 5. Duração das partidas
+        - Cada partida terá duração de **10 minutos corridos**, em período único, sem intervalo.
+        - O cronômetro será contínuo.
+        - Paradas por lesão, atendimento ou situação excepcional poderão ser avaliadas pela
+          arbitragem e pela organização.
+        - Está previsto intervalo operacional de aproximadamente 10 minutos entre os horários
+          de início das partidas.
+        - A organização poderá ajustar os horários subsequentes em caso de atraso.
+
+        ### 6. Composição em quadra e substituições
+        - Cada equipe poderá manter até **7 jogadores em quadra simultaneamente**:
+          6 jogadores de linha e 1 goleiro.
+        - Os 8 integrantes inscritos poderão participar da partida.
+        - As substituições serão livres, pela zona de substituição e conforme a regra oficial.
+
+        ### 7. Regras técnicas
+        Serão aplicadas as regras oficiais do handebol de quadra da IHF, edição vigente a partir
+        de 1º de julho de 2025, exceto nas adaptações previstas neste regulamento.
+        Entre outros aspectos, são observados manejo da bola, passos, drible, área do goleiro,
+        contato físico, faltas, tiros livres, tiro de 7 metros, substituições e sanções disciplinares.
+
+        ### 8. Empate
+        - Como as partidas são eliminatórias, não poderá haver empate ao término dos 10 minutos.
+        - Em caso de igualdade, ocorrerá uma série de **3 cobranças de tiro de 7 metros** para
+          cada equipe, alternadas e executadas por jogadores diferentes.
+        - Persistindo a igualdade, haverá cobranças alternadas, uma por equipe, até que uma
+          obtenha vantagem após o mesmo número de tentativas.
+
+        ### 9. Conduta e respeito
+        - Todos devem respeitar colegas, adversários, arbitragem, organização e público.
+        - Não serão tolerados atos de discriminação, constrangimento, violência, intimidação ou
+          desrespeito relacionados a gênero, identidade, expressão, habilidade ou outra característica.
+        - Condutas antidesportivas estão sujeitas às sanções das regras e às medidas disciplinares
+          da organização.
+        - A arbitragem poderá interromper a partida para preservar a integridade física e o respeito.
+
+        ### 10. Materiais e uniformes
+        Os participantes deverão utilizar roupas esportivas adequadas e calçados apropriados para
+        quadra. Recomenda-se que cada equipe utilize camisetas ou coletes de cor semelhante.
+        É proibido utilizar objetos que ofereçam risco, como relógios, correntes, brincos grandes
+        ou acessórios rígidos.
+
+        ### 11. Responsabilidade e segurança
+        Cada participante deverá informar previamente à organização qualquer condição que exija
+        atenção. A organização deve manter acesso desobstruído à quadra, água disponível e um
+        procedimento para acionamento de atendimento em caso de emergência.
+        A participação pressupõe respeito às orientações de segurança e da arbitragem.
+
+        ### 12. Decisões finais
+        Situações não previstas serão resolvidas pela comissão organizadora, em diálogo com a
+        docente responsável, considerando segurança, inclusão, igualdade de condições e espírito
+        esportivo.
+
+        ### Programação geral
+        - **19h00–19h15:** recepção, conferência das equipes e abertura oficial.
+        - **19h15–21h45:** realização das oito partidas.
+        - **21h45–22h00:** encerramento, agradecimentos e registro coletivo.
+
+        ### Referências
+        INTERNATIONAL HANDBALL FEDERATION (IHF). *Rules of the Game: Indoor Handball.*
+        Edição vigente a partir de 1º de julho de 2025.
+        Disponível em: https://www.ihf.info/sites/default/files/2025-07/09A%20-%20Rules%20of%20the%20Game_Indoor%20Handball_E.pdf
         """,
         unsafe_allow_html=False,
     )
