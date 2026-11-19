@@ -751,10 +751,6 @@ def render_header(show_intro: bool = True) -> None:
             unsafe_allow_html=True,
         )
         st.caption("Inscrição individual, sorteio automático de equipes e confrontos.")
-        st.warning(
-            "Modo demonstração: as apostas usam pontos virtuais e não envolvem dinheiro real. "
-            "Qualquer ajuste administrativo fica registrado no log."
-        )
 
 
 def render_regulation() -> None:
@@ -909,11 +905,10 @@ def render_entry_screen() -> bool:
         """
         <style>
         .arena-entry-banner {
-            background: linear-gradient(135deg, #0a3656 0%, #0d4b7a 55%, #072c49 100%);
-            border: 1px solid rgba(56, 189, 248, .25);
-            border-radius: 18px;
-            box-shadow: 0 16px 36px rgba(2, 132, 199, .12);
-            padding: 1.65rem 1.25rem;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: .35rem 1.25rem;
             text-align: center;
             margin: .45rem 0 1rem;
         }
@@ -924,7 +919,7 @@ def render_entry_screen() -> bool:
             margin: 0;
         }
         .arena-entry-banner p {
-            color: #bae6fd;
+            color: #94a3b8;
             margin: .45rem 0 0;
         }
         </style>
@@ -956,10 +951,6 @@ def render_entry_screen() -> bool:
         'Inscrição individual, sorteio automático de equipes e confrontos.'
         '</div>',
         unsafe_allow_html=True,
-    )
-    st.warning(
-        "Modo demonstração: as apostas usam pontos virtuais e não envolvem dinheiro real.",
-        icon=":material/verified_user:",
     )
 
     left, center, right = st.columns([1, 1.15, 1])
