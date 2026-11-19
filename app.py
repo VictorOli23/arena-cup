@@ -244,6 +244,7 @@ def initialize_state() -> None:
         "entry_profile": "",
         "entry_name": "",
         "entry_participant_id": None,
+        "entry_mode": "login",
         "bracket_size": 0,
         "next_team_id": 1,
         "next_participant_id": 1,
@@ -308,6 +309,23 @@ def team_sizes_for(participant_count: int) -> list[int]:
     return [base_size + (1 if index < remainder else 0) for index in range(TEAM_COUNT)]
 
 
+def balanced_participants(participants: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_year: dict[str, list[dict[str, Any]]] = {}
+    for participant in participants:
+        by_year.setdefault(participant["year"], []).append(participant)
+    for year_participants in by_year.values():
+        random.shuffle(year_participants)
+
+    ordered: list[dict[str, Any]] = []
+    year_groups = list(by_year.values())
+    random.shuffle(year_groups)
+    while any(year_groups):
+        for year_group in year_groups:
+            if year_group:
+                ordered.append(year_group.pop())
+    return ordered
+
+
 def draw_teams() -> bool:
     participants = list(st.session_state.participants)
     if len(participants) < TEAM_COUNT * MIN_TEAM_SIZE:
@@ -325,10 +343,10 @@ def draw_teams() -> bool:
 
     women = [participant for participant in participants if participant["gender"] == "Mulher"]
     men = [participant for participant in participants if participant["gender"] == "Homem"]
-    if len(women) < TEAM_COUNT * 2:
+    if len(women) < TEAM_COUNT:
         st.error(
-            f"São necessárias pelo menos {TEAM_COUNT * 2} mulheres "
-            "para garantir duas em cada equipe."
+            f"São necessárias pelo menos {TEAM_COUNT} mulheres "
+            "para garantir uma em cada equipe."
         )
         return False
     if len(men) < TEAM_COUNT * 2:
@@ -338,8 +356,6 @@ def draw_teams() -> bool:
         )
         return False
 
-    random.shuffle(women)
-    random.shuffle(men)
     sizes = team_sizes_for(len(participants))
     teams = [
         {
@@ -347,22 +363,54 @@ def draw_teams() -> bool:
             "name": f"Equipe {index + 1}",
             "members": [],
             "captain": "",
+            "_year_counts": {},
         }
         for index in range(TEAM_COUNT)
     ]
 
-    for index, team in enumerate(teams):
-        team["members"].extend(women[index * 2 : index * 2 + 2])
+    women_per_team = 2 if len(women) >= TEAM_COUNT * 2 else 1
+    balanced_women = balanced_participants(women)
+    balanced_men = balanced_participants(men)
+    for _ in range(women_per_team):
+        for team in teams:
+            participant = balanced_women.pop()
+            team["members"].append(participant)
+            team["_year_counts"][participant["year"]] = (
+                team["_year_counts"].get(participant["year"], 0) + 1
+            )
 
-    remaining = women[TEAM_COUNT * 2 :] + men
-    random.shuffle(remaining)
-    for team, size in zip(teams, sizes):
-        vacancies = size - len(team["members"])
-        team["members"].extend(remaining[:vacancies])
-        del remaining[:vacancies]
+    remaining = balanced_participants(balanced_women + balanced_men)
+    for participant in remaining:
+        available = [
+            (team, size)
+            for team, size in zip(teams, sizes)
+            if len(team["members"]) < size
+        ]
+        min_year_count = min(
+            team["_year_counts"].get(participant["year"], 0)
+            for team, _ in available
+        )
+        available = [
+            (team, size)
+            for team, _ in available
+            if team["_year_counts"].get(participant["year"], 0) == min_year_count
+        ]
+        min_size = min(len(team["members"]) for team, _ in available)
+        candidates = [
+            team for team, _ in available if len(team["members"]) == min_size
+        ]
+        team = random.choice(candidates)
+        team["members"].append(participant)
+        team["_year_counts"][participant["year"]] = (
+            team["_year_counts"].get(participant["year"], 0) + 1
+        )
+
+    for team in teams:
         random.shuffle(team["members"])
         team["captain"] = random.choice(team["members"])["name"]
+        team["year_counts"] = team["_year_counts"]
         team["members"] = [participant["name"] for participant in team["members"]]
+        del team["_year_counts"]
 
     st.session_state.teams = teams
     st.session_state.next_team_id = TEAM_COUNT + 1
@@ -719,7 +767,10 @@ def render_regulation() -> None:
 
         ### 2. Sorteio das equipes
         - Serão formadas **8 equipes**, com **7 ou 8 atletas** cada.
-        - Cada equipe terá no mínimo **2 mulheres e 2 homens**.
+        - Cada equipe terá, sempre que possível, no mínimo **2 mulheres e 2 homens**.
+          Se não houver mulheres suficientes, haverá pelo menos **1 mulher por equipe**.
+        - O sorteio distribui participantes das quatro turmas entre as equipes para
+          evitar a concentração de uma única turma.
         - O sorteio das equipes e dos capitães ocorrerá automaticamente em
           **27/11/2026 às 15:30**.
         - Depois do sorteio, as inscrições e a composição das equipes ficam bloqueadas.
@@ -792,21 +843,59 @@ def render_registration_page() -> None:
         st.rerun()
 
 
+def render_results_page() -> None:
+    st.header("Resultados do sorteio")
+    if not st.session_state.teams:
+        st.info("Os resultados aparecerão automaticamente após o sorteio das equipes.")
+        return
+
+    st.success("Sorteio realizado! As equipes foram formadas com participantes das quatro turmas.")
+    for row_start in range(0, len(st.session_state.teams), 2):
+        team_columns = st.columns(2)
+        for column, team in zip(
+            team_columns, st.session_state.teams[row_start : row_start + 2]
+        ):
+            members = ", ".join(escape(member) for member in team["members"])
+            year_summary = " • ".join(
+                f"{year}: {count}"
+                for year, count in sorted(team.get("year_counts", {}).items())
+            )
+            with column:
+                st.markdown(
+                    f"""
+                    <div class="team-card">
+                        <h3>{escape(team['name'])}</h3>
+                        <div class="captain">⭐ Capitão: {escape(team['captain'])}</div>
+                        <div class="members"><b>{len(team['members'])} atletas</b><br>
+                        {members}<br><small>{escape(year_summary)}</small></div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+
 def render_entry_screen() -> bool:
     if st.session_state.entry_completed:
         return True
 
-    st.title("Acesso ao Arena Cup")
-    access_mode = st.radio(
-        "Escolha uma opção",
-        ["Entrar", "Criar conta", "Regulamento", "Acesso administrativo"],
-        horizontal=True,
-    )
-    if access_mode == "Regulamento":
+    title_column, admin_column = st.columns([3, 1])
+    with admin_column:
+        if st.button("Área administrativa", key="open_admin"):
+            st.session_state.entry_mode = "admin"
+            st.rerun()
+    with title_column:
+        st.title("Acesso ao Arena Cup")
+
+    access_mode = st.session_state.entry_mode
+    if access_mode == "regulation":
         render_regulation()
+        if st.button("Voltar para o login", key="back_from_regulation"):
+            st.session_state.entry_mode = "login"
+            st.rerun()
         return False
 
-    if access_mode == "Acesso administrativo":
+    if access_mode == "admin":
+        st.subheader("Área administrativa")
         with st.form("admin_entry"):
             admin_password = st.text_input("Senha do administrador", type="password")
             submitted = st.form_submit_button("Entrar", type="primary")
@@ -821,9 +910,13 @@ def render_entry_screen() -> bool:
                 st.rerun()
             else:
                 st.error("Senha administrativa incorreta.")
+        if st.button("Voltar para o login", key="back_from_admin"):
+            st.session_state.entry_mode = "login"
+            st.rerun()
         return False
 
-    if access_mode == "Criar conta":
+    if access_mode == "register":
+        st.subheader("Criar cadastro")
         st.write("Crie uma conta com seu nome completo e uma senha.")
         with st.form("account_creation"):
             name = st.text_input("Nome completo")
@@ -840,9 +933,13 @@ def render_entry_screen() -> bool:
             elif not create_account(name, password):
                 st.error("Já existe uma conta com esse nome.")
             else:
-                st.success("Conta criada. Agora selecione “Entrar” para acessar.")
+                st.success("Conta criada. Agora faça login para acessar.")
+        if st.button("Voltar para o login", key="back_from_register"):
+            st.session_state.entry_mode = "login"
+            st.rerun()
         return False
 
+    st.subheader("Login")
     with st.form("account_login"):
         name = st.text_input("Nome completo")
         password = st.text_input("Senha", type="password")
@@ -861,6 +958,15 @@ def render_entry_screen() -> bool:
         else:
             st.error("Nome ou senha inválidos.")
 
+    st.markdown("Ainda não tem cadastro?")
+    if st.button("Criar cadastro", key="open_register"):
+        st.session_state.entry_mode = "register"
+        st.rerun()
+    st.divider()
+    if st.button("Regulamento", key="open_regulation"):
+        st.session_state.entry_mode = "regulation"
+        st.rerun()
+
     return False
 
 
@@ -878,13 +984,15 @@ with st.sidebar:
         st.session_state.entry_profile = ""
         st.session_state.entry_name = ""
         st.session_state.entry_participant_id = None
+        st.session_state.entry_mode = "login"
         st.session_state.admin_authenticated = False
         st.session_state.account_authenticated = False
         st.session_state.account_name = ""
         st.rerun()
     st.divider()
     if st.session_state.entry_profile == "Competidor":
-        available_pages = ["Inscrição", "Apostas", "Regulamento"]
+        first_page = "Resultados" if st.session_state.teams else "Inscrição"
+        available_pages = [first_page, "Apostas", "Regulamento"]
     elif st.session_state.entry_profile == "Administrador":
         available_pages = ["Painel administrativo", "Regulamento"]
     else:
@@ -901,6 +1009,8 @@ with st.sidebar:
 
 if page == "Regulamento":
     render_regulation()
+elif page == "Resultados":
+    render_results_page()
 elif page == "Inscrição":
     render_registration_page()
 elif page in ("Tela principal", "Confrontos e apostas", "Apostas"):
