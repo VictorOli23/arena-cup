@@ -910,14 +910,14 @@ def render_entry_screen() -> bool:
         [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:first-of-type {
             margin-top: 0 !important;
         }
-        [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:first-of-type [data-testid="stBaseButton-secondary"] {
+        [data-testid="stMainBlockContainer"] [data-testid="stBaseButton-secondary"] {
             background: transparent !important;
             border: none !important;
             box-shadow: none !important;
             color: #dbeafe !important;
             padding: .2rem .35rem !important;
         }
-        [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:first-of-type [data-testid="stBaseButton-secondary"]:hover {
+        [data-testid="stMainBlockContainer"] [data-testid="stBaseButton-secondary"]:hover {
             background: transparent !important;
             color: #38bdf8 !important;
         }
@@ -943,16 +943,6 @@ def render_entry_screen() -> bool:
         """,
         unsafe_allow_html=True,
     )
-
-    spacer, regulation_column, admin_column = st.columns([5, 1.1, 1.35])
-    with regulation_column:
-        if st.button("Regulamento", key="open_regulation", width="stretch"):
-            render_regulation_dialog()
-            return False
-    with admin_column:
-        if st.button("Área administrativa", key="open_admin", width="stretch"):
-            render_admin_dialog()
-            return False
 
     st.markdown(
         """
@@ -1068,6 +1058,16 @@ def render_entry_screen() -> bool:
                 if st.button("Registre-se", key="open_register", width="stretch"):
                     st.session_state.entry_mode = "register"
                     st.rerun()
+
+                entry_extra = st.columns(2)
+                with entry_extra[0]:
+                    if st.button("Regulamento", key="open_regulation", width="stretch"):
+                        render_regulation_dialog()
+                        return False
+                with entry_extra[1]:
+                    if st.button("Área administrativa", key="open_admin", width="stretch"):
+                        render_admin_dialog()
+                        return False
 
     return False
 
