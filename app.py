@@ -337,12 +337,6 @@ def draw_teams() -> bool:
     if len(participants) < 8:
         st.error("São necessários pelo menos 8 atletas para formar uma equipe.")
         return False
-    if len(participants) > TEAM_COUNT * MAX_TEAM_SIZE:
-        st.error(
-            f"O limite é de {TEAM_COUNT * MAX_TEAM_SIZE} atletas "
-            f"({MAX_TEAM_SIZE} por equipe)."
-        )
-        return False
 
     team_count = (
         TEAM_COUNT
@@ -424,7 +418,11 @@ def draw_teams() -> bool:
     add_audit(
         f"Sorteio automático realizado em {current_time().strftime('%d/%m/%Y às %H:%M')}: "
         f"{len(participants)} atletas distribuídos em {team_count} equipes"
-        + ("." if len(participants) == TEAM_COUNT * MAX_TEAM_SIZE else " por falta de participantes suficientes.")
+        + (
+            "."
+            if len(participants) >= TEAM_COUNT * 7
+            else " por falta de participantes suficientes."
+        )
     )
     return True
 
@@ -800,6 +798,8 @@ def render_regulation() -> None:
           e homens por equipe conforme a quantidade disponível.
         - Após o sorteio, não serão permitidas trocas de integrantes, salvo situação excepcional
           aprovada pela organização.
+        - Em caso de número insuficiente ou excedente de inscritos, a comissão organizadora
+          poderá ajustar manualmente os integrantes das equipes após o sorteio.
         - Não poderá participar atleta não inscrito ou vinculado a outra equipe.
 
         ### 4. Sistema de disputa
@@ -899,9 +899,6 @@ def render_registration_page() -> None:
         )
         submitted = st.form_submit_button("Confirmar inscrição", type="primary")
     if submitted:
-        if len(st.session_state.participants) >= TEAM_COUNT * MAX_TEAM_SIZE:
-            st.error("As inscrições atingiram o limite de 64 atletas.")
-            return
         participant = {
             "id": st.session_state.next_participant_id,
             "name": st.session_state.account_name,
@@ -1077,8 +1074,6 @@ def render_entry_screen() -> bool:
                         st.error("Já existe uma inscrição com esse nome.")
                     elif not create_account(name, password):
                         st.error("Já existe uma conta com esse nome.")
-                    elif len(st.session_state.participants) >= TEAM_COUNT * MAX_TEAM_SIZE:
-                        st.error("As inscrições atingiram o limite de 64 atletas.")
                     else:
                         participant = {
                             "id": st.session_state.next_participant_id,
@@ -1380,6 +1375,93 @@ else:
                         add_audit(f"Inscrição de {participant['name']} excluída pelo administrador.")
                         st.success(f"Inscrição de {participant['name']} excluída.")
                         st.rerun()
+
+        if st.session_state.teams:
+            st.subheader("Editar equipes após o sorteio")
+            st.caption(
+                "Use este ajuste para corrigir equipes incompletas ou equilibrar a composição "
+                "de gênero e turmas manualmente."
+            )
+            team_options = {
+                team["name"]: team["id"]
+                for team in st.session_state.teams
+            }
+            all_members = sorted(
+                {
+                    member
+                    for team in st.session_state.teams
+                    for member in team["members"]
+                }
+            )
+            with st.form("move_team_member"):
+                member = st.selectbox("Atleta", all_members)
+                destination_name = st.selectbox(
+                    "Mover para",
+                    list(team_options),
+                )
+                move_member = st.form_submit_button("Mover atleta", type="primary")
+            if move_member:
+                destination = get_team(team_options[destination_name])
+                source = next(
+                    (
+                        team
+                        for team in st.session_state.teams
+                        if member in team["members"]
+                    ),
+                    None,
+                )
+                if source and destination and source["id"] != destination["id"]:
+                    participant_data = next(
+                        (
+                            participant
+                            for participant in st.session_state.participants
+                            if participant["name"] == member
+                        ),
+                        None,
+                    )
+                    participant_year = participant_data["year"] if participant_data else ""
+                    source["members"].remove(member)
+                    destination["members"].append(member)
+                    if participant_year:
+                        source["year_counts"][participant_year] = max(
+                            source["year_counts"].get(participant_year, 0) - 1,
+                            0,
+                        )
+                        destination["year_counts"][participant_year] = (
+                            destination["year_counts"].get(participant_year, 0) + 1
+                        )
+                    if source["captain"] == member:
+                        source["captain"] = source["members"][0] if source["members"] else ""
+                    if not destination["captain"]:
+                        destination["captain"] = member
+                    save_shared_state()
+                    add_audit(
+                        f"Administrador moveu {member} de {source['name']} "
+                        f"para {destination['name']}."
+                    )
+                    st.success(f"{member} foi movido para {destination['name']}.")
+                    st.rerun()
+                elif source and destination:
+                    st.info(f"{member} já pertence a {destination['name']}.")
+
+            for team in st.session_state.teams:
+                if not team["members"]:
+                    continue
+                captain = st.selectbox(
+                    f"Capitão — {team['name']}",
+                    team["members"],
+                    index=team["members"].index(team["captain"])
+                    if team["captain"] in team["members"]
+                    else 0,
+                    key=f"captain_{team['id']}",
+                )
+                if captain != team["captain"]:
+                    team["captain"] = captain
+                    save_shared_state()
+                    add_audit(
+                        f"Administrador definiu {captain} como capitão da {team['name']}."
+                    )
+                    st.success(f"{captain} definido como capitão da {team['name']}.")
 
         st.subheader("Lançar resultados")
         for match in st.session_state.matches:

@@ -21,6 +21,8 @@ streamlit run app.py
    Caso não haja participantes suficientes para a composição completa, o sorteio forma o
    maior número possível de equipes com até 8 atletas e ajusta a composição mínima de
    gênero conforme a disponibilidade.
+   Não há limite máximo de inscrições. Havendo mais participantes que vagas oficiais,
+   o administrador pode completar e ajustar os times manualmente após o sorteio.
 4. O mesmo sorteio cria automaticamente a chave eliminatória simples de oito equipes:
    quartas, semifinais, terceiro lugar e final.
 5. Apostadores identificam-se e usam um saldo inicial de 1.000 pontos virtuais.
